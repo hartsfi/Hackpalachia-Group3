@@ -154,6 +154,12 @@ def case_messages(case_id: int):
             "SELECT * FROM messages WHERE case_id=? ORDER BY id", (case_id,)).fetchall()]
 
 
+def is_first_contact(phone: str) -> bool:
+    """True if we have never texted this phone before."""
+    with connect() as c:
+        return c.execute("SELECT 1 FROM messages WHERE to_phone=? LIMIT 1", (phone,)).fetchone() is None
+
+
 def phone_messages(phone: str, since_id: int = 0):
     """Everything sent to or from one phone (used by the dev phone simulator)."""
     with connect() as c:

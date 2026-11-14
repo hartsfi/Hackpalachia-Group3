@@ -64,6 +64,8 @@ TEXT = {
                 "VISIT or RESCHEDULE changes a visit. STOP to opt out. Emergency: 911",
         "resubscribed": "You will get TextBridge texts again. Text what care you need and your "
                         "ZIP code or town.",
+        "welcome": "TextBridge health line: replies to your texts, visit bookings and reminders. "
+                   "Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
         "identity": "To book at {short}, reply with your first and last name and date of birth, "
                     "like: Jane Doe 03/14/1980",
         "identity_again": "Please send first name, last name and date of birth as MM/DD/YYYY, like: "
@@ -105,6 +107,8 @@ TEXT = {
                 "CAMBIAR CITA. STOP para salir. Emergencia: 911",
         "resubscribed": "Recibira mensajes de TextBridge otra vez. Escriba que atencion "
                         "necesita y su codigo postal.",
+        "welcome": "Linea de salud TextBridge: respuestas, citas y recordatorios. Pueden aplicar "
+                   "tarifas de mensajes y datos. HELP para ayuda, STOP para salir.",
         "identity": "Para reservar en {short}, responda con su nombre, apellido y fecha de "
                     "nacimiento, asi: Ana Diaz 03/14/1980",
         "identity_again": "Envie nombre, apellido y fecha de nacimiento como MM/DD/AAAA, asi: Ana "
@@ -209,10 +213,13 @@ def _from_patient(phone: str, body: str) -> None:
 
 
 def _new_case(phone: str, body: str) -> None:
+    first_contact = db.is_first_contact(phone)
     tri = triage(body)
     case_id = db.create_case(phone, tri)
     db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     case = db.get_case(case_id)
+    if first_contact:  # carrier opt-in confirmation: program name, rates, HELP and STOP
+        sms.send(phone, _t(tri["language"], "welcome"), case_id, "system")
     _notify_chws(case, f"[#{case_id} {tri['urgency'].upper()} {tri['category']}] {_tail(phone)}: {body}\n"
                        f"Summary: {tri['summary']}\nReply: #{case_id} your message")
     place = services.find_place(body)
