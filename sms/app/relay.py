@@ -75,8 +75,8 @@ TEXT = {
                 "4 Mobile clinic\n5 My visit\nEmergency: call 911",
         "welcome_back_menu": "Welcome back {first}!",
         "chw_soon": "OK. A health worker will text you here soon.",
-        "handoff": "Thanks. A health worker will text you back here soon. Text MY VISIT for your visit or "
-                   "HELP for options.",
+        "handoff": "Thanks. A health worker will text you back here soon. If it is urgent or getting worse, "
+                   "call 911.",
         "after_emergency": "A health worker has your message and will text you here. If it is an emergency or "
                            "gets worse, call 911 now.",
         "chest": "Chest pain can be a heart attack. Call 911 if it's crushing, spreads to your arm or jaw, or "
@@ -167,8 +167,8 @@ TEXT = {
                 "4 Clinica movil\n5 Mi cita\nEmergencia: 911",
         "welcome_back_menu": "¡Bienvenido otra vez {first}!",
         "chw_soon": "Bien. Un trabajador de salud le escribira aqui pronto.",
-        "handoff": "Gracias. Un trabajador de salud le escribira aqui pronto. Escriba MI CITA para su "
-                   "cita o HELP para opciones.",
+        "handoff": "Gracias. Un trabajador de salud le escribira aqui pronto. Si es urgente o empeora, "
+                   "llame al 911.",
         "after_emergency": "Un trabajador de salud tiene su mensaje y le escribira aqui. Si es una emergencia o "
                            "empeora, llame al 911 ahora.",
         "chest": "El dolor de pecho puede ser un infarto. Llame al 911 si es fuerte, se extiende al brazo o la "
@@ -380,9 +380,14 @@ QUESTION_WORDS = {"why", "what", "whats", "what's", "how", "who", "where", "when
                   "could", "do", "does", "will", "would", "should", "porque", "por", "que", "como", "donde", "cuando"}
 
 
+FILLER = {"and", "so", "but", "ok", "okay", "wait", "um", "uh", "hey", "also", "oh", "y", "pero", "entonces"}
+
+
 def _asks_back(text: str) -> bool:
-    words = text.lower().split()
-    return bool(words) and ("?" in text or "¿" in text or words[0].strip("¿") in QUESTION_WORDS)
+    words = [w.strip("¿,.!") for w in text.lower().split()]
+    while words and words[0] in FILLER:  # "and where am i going", "ok so what time"
+        words.pop(0)
+    return bool(words) and ("?" in text or "¿" in text or words[0] in QUESTION_WORDS)
 
 
 def _last_question(case) -> str | None:
@@ -422,7 +427,7 @@ def _hand_off(case, body: str, reason: str = "") -> None:
     sms.send(phone, _t(case["language"], "handoff"), case["id"], "system")
 
 
-def _emergency(phone: str, body: str, case, tri: dict | None = None, logged: bool = False) -> None:
+def _emergency(phone: str, body: str, case, tri: dict | None = None, logged: bool = False) -> None:  # noqa: C901
     """911 / 988 reply and an alert to the health workers. No booking questions.
 
     Reached three ways: the keyword list (always, in code), Claude's triage of a first text, and
@@ -438,7 +443,8 @@ def _emergency(phone: str, body: str, case, tri: dict | None = None, logged: boo
     # heartburn), but still 911 first. With any other emergency sign it gets the plain 911 reply.
     chest_only = bool(CHEST_WORDS.search(body)) and not EMERGENCY_WORDS.search(CHEST_WORDS.sub(" ", body))
     db.update_case(case_id, urgency="emergency", stage="ask_chest" if chest_only else None)
-    key = "crisis" if CRISIS_WORDS.search(body) else "chest" if chest_only else "emergency"
+    crisis = CRISIS_WORDS.search(body) or (tri and tri.get("category") == "mental_health")
+    key = "crisis" if crisis else "chest" if chest_only else "emergency"
     sms.send(phone, _t(case["language"], key), case_id, "system")
     _notify_chws(case, f"[#{case_id} EMERGENCY] {_tail(phone)}: {body}\nReply: #{case_id} your message")
 

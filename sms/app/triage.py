@@ -38,6 +38,9 @@ EMERGENCY_WORDS = re.compile(
     r"throat (is )?(closing|swelling)|can'?t swallow|"
     r"suicid|kill myself|end my life|want to die|hurt myself|"
     r"(don[’']?t|do not|no) see (the|any) point|no reason to live|better off without me|"
+    r"what[’']?s the point( of (any of )?(this|it|anything|living|life))?( anymore)?\s*[?.!]*$|"
+    r"what[’']?s the point of (living|life|going on)|(don[’']?t|do not) (really )?want to (be here|live|wake up)|"
+    r"can[’']?t (go on|do this anymore|take (it|this) anymore)|"
     r"ataque al corazon|ataque al corazón|infarto|no puedo respirar|no respira|derrame|sobredosis|"
     r"convulsion|convulsión|matarme|quitarme la vida",
     re.I,
@@ -47,6 +50,9 @@ CHEST_WORDS = re.compile(r"chest (pain|hurts?|is (hurting|tight)|tight(ness)?|pr
 CRISIS_WORDS = re.compile(
     r"suicid|kill myself|end my life|want to die|hurt myself|"
     r"(don[’']?t|do not|no) see (the|any) point|no reason to live|better off without me|"
+    r"what[’']?s the point( of (any of )?(this|it|anything|living|life))?( anymore)?\s*[?.!]*$|"
+    r"what[’']?s the point of (living|life|going on)|(don[’']?t|do not) (really )?want to (be here|live|wake up)|"
+    r"can[’']?t (go on|do this anymore|take (it|this) anymore)|"
     r"matarme|quitarme la vida", re.I)
 
 KEYWORDS = {
