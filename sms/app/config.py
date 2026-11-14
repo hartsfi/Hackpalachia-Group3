@@ -17,6 +17,10 @@ CHW_NUMBERS = _list("CHW_NUMBERS") or ["+17405550199"]
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 TRIAGE_MODEL = os.getenv("TRIAGE_MODEL", "claude-haiku-5-5").strip()
+# Free-text answers to the booking questions (app/understand.py). On when there is a key;
+# FREE_TEXT=0 turns it off and the questions accept only exact answers, as before.
+UNDERSTAND_MODEL = os.getenv("UNDERSTAND_MODEL", "claude-haiku-5-5").strip()
+UNDERSTAND_ENABLED = bool(ANTHROPIC_API_KEY) and os.getenv("FREE_TEXT", "1").strip() != "0"
 
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "").strip()
 DB_PATH = os.getenv("DB_PATH", "textbridge.db")

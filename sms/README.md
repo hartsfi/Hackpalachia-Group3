@@ -19,6 +19,12 @@ Clinics can be connected to **athenahealth** (athenaOne): their open times come 
 athenahealth and visits are booked, moved and cancelled there (see "athenahealth booking" in
 [TESTING.md](TESTING.md)). The others use the mock calendar.
 
+With `ANTHROPIC_API_KEY` set, patients can answer the booking questions in their own words: "im on
+medicaid" instead of `1`, "the tuesday one" instead of `2`, a misspelled town instead of a ZIP.
+Claude only picks which allowed answer was meant ([`app/understand.py`](app/understand.py)); every
+reply and every booking still comes from the scripted flow, and an unclear answer just gets the
+question asked again. Check it with `python -m tools.check_understand` (no key needed).
+
 Each new text is triaged by need (rides, medicine, appointments, food, housing, mental health, insurance, utilities) and urgency. Claude does this when
 `ANTHROPIC_API_KEY` is set, keyword rules otherwise. Emergency and crisis words always get an
 immediate 911 / 988 reply, in English or Spanish.

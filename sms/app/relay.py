@@ -9,6 +9,8 @@ Patient booking conversation (case.stage):
   ask_slot    up to three numbered visits (name, distance, next time); reply a number
   ask_identity  athenahealth clinics only, once per phone: name + date of birth for the patient record
   booked / done / None   free texting with the health worker
+Replies in the patient's own words ("im on medicaid", "the tuesday one") are mapped to the exact
+answer by understand.py when Claude is on; the questions, replies and bookings stay scripted.
 Emergencies skip all of this: 911 / 988 first, CHWs alerted, no booking.
 Every text to a patient is kept within 160 GSM-7 characters (no links).
 """
@@ -17,7 +19,7 @@ import json
 import logging
 import re
 
-from . import athena, config, db, services, sms
+from . import athena, config, db, services, sms, understand
 from .triage import CRISIS_WORDS, EMERGENCY_WORDS, triage
 
 log = logging.getLogger("relay")
@@ -196,6 +198,8 @@ def _from_patient(phone: str, body: str) -> None:
 
     db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     stage = case["stage"]
+    # "im on medicaid", "the tuesday one": turned into the exact answer the question expects.
+    body, word = understand.answer(case, body, word)
     if stage == "ask_where":
         _on_where(case, body)
     elif stage == "ask_income":
@@ -215,7 +219,7 @@ def _new_case(phone: str, body: str) -> None:
     case = db.get_case(case_id)
     _notify_chws(case, f"[#{case_id} {tri['urgency'].upper()} {tri['category']}] {_tail(phone)}: {body}\n"
                        f"Summary: {tri['summary']}\nReply: #{case_id} your message")
-    place = services.find_place(body)
+    place = services.find_place(body) or understand.place(body)  # e.g. a misspelled town
     if place:
         _ask_income(case, place)
     else:
