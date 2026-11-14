@@ -42,6 +42,11 @@ CREATE TABLE IF NOT EXISTS bookings (
 CREATE TABLE IF NOT EXISTS optouts (phone TEXT PRIMARY KEY, created_at REAL);
 -- athenahealth patient id per phone, so the name/date-of-birth question is asked only once.
 CREATE TABLE IF NOT EXISTS athena_patients (phone TEXT PRIMARY KEY, patient_id TEXT, created_at REAL);
+-- The same, per practice: every clinic organization is its own athenahealth practice with its
+-- own patient ids, so an id is only ever used in the practice that issued it.
+CREATE TABLE IF NOT EXISTS athena_practice_patients (
+  phone TEXT NOT NULL, practice_id TEXT NOT NULL, patient_id TEXT, created_at REAL,
+  PRIMARY KEY (phone, practice_id));
 CREATE INDEX IF NOT EXISTS idx_cases_phone ON cases(patient_phone, status);
 CREATE INDEX IF NOT EXISTS idx_messages_case ON messages(case_id);
 """
@@ -242,13 +247,22 @@ def is_opted_out(phone: str) -> bool:
 
 
 # ---------------------------------------------------------------- athenahealth patients
-def athena_patient(phone: str) -> str | None:
+def athena_patient(phone: str, practice: str | None = None) -> str | None:
+    """This phone's patient id in one athenahealth practice (no practice = the older single table)."""
     with connect() as c:
-        r = c.execute("SELECT patient_id FROM athena_patients WHERE phone=?", (phone,)).fetchone()
+        if practice:
+            r = c.execute("SELECT patient_id FROM athena_practice_patients WHERE phone=? AND practice_id=?",
+                          (phone, practice)).fetchone()
+        else:
+            r = c.execute("SELECT patient_id FROM athena_patients WHERE phone=?", (phone,)).fetchone()
         return r[0] if r else None
 
 
-def save_athena_patient(phone: str, patient_id: str) -> None:
+def save_athena_patient(phone: str, patient_id: str, practice: str | None = None) -> None:
     with connect() as c:
-        c.execute("INSERT OR REPLACE INTO athena_patients(phone, patient_id, created_at) VALUES (?,?,?)",
-                  (phone, patient_id, now()))
+        if practice:
+            c.execute("INSERT OR REPLACE INTO athena_practice_patients(phone, practice_id, patient_id, created_at)"
+                      " VALUES (?,?,?,?)", (phone, practice, patient_id, now()))
+        else:
+            c.execute("INSERT OR REPLACE INTO athena_patients(phone, patient_id, created_at) VALUES (?,?,?)",
+                      (phone, patient_id, now()))
