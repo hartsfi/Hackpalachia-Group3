@@ -53,6 +53,8 @@ def find_place(text: str) -> dict | None:
             if p["zip"] == z:
                 return p
     for p in sorted(pl, key=lambda p: -len(p["town"])):
+        if p.get("zip_only"):  # e.g. Ray, Shade, Friendship: too easily a normal word in a text
+            continue
         if re.search(r"\b" + re.escape(p["town"]) + r"\b", text, re.I):
             return p
     return None
