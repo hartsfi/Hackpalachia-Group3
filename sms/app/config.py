@@ -28,6 +28,10 @@ LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "20"))                 # seconds, t
 # FREE_TEXT=0 turns it off and the questions accept only exact answers, as before.
 UNDERSTAND_MODEL = os.getenv("UNDERSTAND_MODEL", "claude-haiku-5-5").strip()
 UNDERSTAND_ENABLED = bool(ANTHROPIC_API_KEY) and os.getenv("FREE_TEXT", "1").strip() != "0"
+# The agent (app/agent.py): answers patients' own questions with tools when no booking question
+# is waiting. On when there is a key; AGENT=0 turns it off (texts then go to a health worker).
+AGENT_MODEL = os.getenv("AGENT_MODEL", "claude-haiku-5-5").strip()
+AGENT_ENABLED = bool(ANTHROPIC_API_KEY) and os.getenv("AGENT", "1").strip() != "0"
 
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "").strip()
 DB_PATH = os.getenv("DB_PATH", "textbridge.db")

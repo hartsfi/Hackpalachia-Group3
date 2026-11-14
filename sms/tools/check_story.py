@@ -176,7 +176,10 @@ check("emergency -> 911, no booking question", len(r) == 1 and "911" in r[0]["bo
 r, _ = text("+17405551005", "I want to end my life"); show(r); check("crisis -> 988", "988" in r[-1]["body"])
 text("+17405551006", "checkup in Athens"); r, _ = text("+17405551006", "my dad has chest pain"); show(r)
 check("emergency mid-booking stops the flow", "911" in r[-1]["body"])
-r, _ = text("+17405551006", "1"); check("next '1' is not treated as a booking answer", not r, f"{len(r)} texts")
+r, _ = text("+17405551006", "1"); check("next '1' is not treated as a booking answer",
+                                         not any("Reply 1" in m["body"] or "Booked" in m["body"] for m in r), f"{len(r)} texts")
+check("...but the patient is told a health worker has it", r and "health worker has your message" in r[-1]["body"])
+r, _ = text("+17405551006", "?"); check("told only once", not r, f"{len(r)} texts")
 print("== Spanish"); r, _ = text("+17405551007", "hola, necesito una cita en Athens"); show(r)
 check("Spanish reply", r and "Para crear su cuenta" in r[-1]["body"])
 print("== Returning user")
