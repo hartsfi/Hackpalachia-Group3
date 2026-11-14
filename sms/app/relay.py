@@ -343,18 +343,57 @@ def _book_pick(case, pick: dict) -> None:
                        f"({case['income']} income, {case['zip']})" + (f" athena appt {ext}" if ext else ""))
 
 
+# Dates of birth as people actually type them: 03/14/1980, 1980-03-14, "October 11 2005",
+# "oct 11th, 2005", "11 de octubre de 2005". Month names in English, Spanish and French.
+_MONTHS = {name: n for n, names in enumerate([
+    ("january", "jan", "enero", "ene", "janvier"), ("february", "feb", "febrero", "fevrier", "février"),
+    ("march", "mar", "marzo", "mars"), ("april", "apr", "abril", "abr", "avril"), ("may", "mayo", "mai"),
+    ("june", "jun", "junio", "juin"), ("july", "jul", "julio", "juillet"),
+    ("august", "aug", "agosto", "ago", "aout", "août"),
+    ("september", "sept", "sep", "septiembre", "setiembre", "septembre"), ("october", "oct", "octubre", "octobre"),
+    ("november", "nov", "noviembre", "novembre"), ("december", "dec", "diciembre", "dic", "decembre", "décembre"),
+], 1) for name in names}
+_MON = "|".join(sorted(_MONTHS, key=len, reverse=True))
+DOB_ISO = re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b")
 DOB = re.compile(r"(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})")
+DOB_MONTH_FIRST = re.compile(rf"\b({_MON})\.?\s+(\d{{1,2}})(?:st|nd|rd|th)?,?\s+(\d{{4}}|\d{{2}})\b", re.I)
+DOB_DAY_FIRST = re.compile(rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\s+(?:de\s+|of\s+)?({_MON})\.?,?\s+(?:de\s+|del\s+)?(\d{{4}}|\d{{2}})\b", re.I)
+# Words around a name that are not the name: "my name is Jane Doe, born ..."
+_NOT_A_NAME = {"my", "name", "is", "im", "i'm", "i", "am", "and", "born", "dob", "birthday", "birthdate", "on", "date", "of",
+               "birth", "the", "was", "its", "it's", "it", "this", "hi", "hello", "mi", "nombre", "es", "soy", "me", "llamo",
+               "naci", "nací", "nacido", "nacida", "el", "fecha", "de", "nacimiento", "y", "hola"}
+
+
+def _find_dob(text: str) -> tuple[int, int, int, int] | None:
+    """Where the date starts in the text, then month, day, year. None if no date is found."""
+    m = DOB_ISO.search(text)
+    if m:
+        return m.start(), int(m.group(2)), int(m.group(3)), int(m.group(1))
+    m = DOB.search(text)
+    if m:
+        return m.start(), int(m.group(1)), int(m.group(2)), int(m.group(3))
+    m = DOB_MONTH_FIRST.search(text)
+    if m:
+        return m.start(), _MONTHS[m.group(1).lower()], int(m.group(2)), int(m.group(3))
+    m = DOB_DAY_FIRST.search(text)
+    if m:
+        return m.start(), _MONTHS[m.group(2).lower()], int(m.group(1)), int(m.group(3))
+    return None
 
 
 def _parse_identity(text: str) -> tuple[str, str, str] | None:
-    """'Jane Q Doe 3/14/1980' -> ('Jane', 'Doe', '03/14/1980'); None if it doesn't look right."""
-    m = DOB.search(text)
-    if not m:
+    """'Jane Q Doe 3/14/1980' or 'Jane Doe, October 14 1980' -> ('Jane', 'Doe', '03/14/1980').
+
+    None if it doesn't look right. Done with plain rules on purpose: a name and date of birth
+    are never sent to the AI.
+    """
+    found = _find_dob(text)
+    if not found:
         return None
-    names = re.findall(r"[A-Za-zÀ-ÿ'’-]+", text[:m.start()])
+    start, mo, d, y = found
+    names = [w for w in re.findall(r"[A-Za-zÀ-ÿ'’-]+", text[:start]) if w.lower() not in _NOT_A_NAME]
     if len(names) < 2:
         return None
-    mo, d, y = map(int, m.groups())
     today = dt.date.today()
     if y < 100:
         y += 1900 if y > today.year % 100 else 2000
