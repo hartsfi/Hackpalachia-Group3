@@ -1,0 +1,61 @@
+{
+  "_note": "What athenahealth does not know about each clinic, keyed by clinic id = practiceid:departmentid. Used when CLINIC_SOURCE=athena. THESE ENTRIES ARE FOR tools/fake_athena.py (fictional clinics). For real practices run `python tools/athena_setup.py overrides`: it rewrites this file from the live department list and keeps the entries you have filled in. Fields: short = name used in texts (18 characters or fewer). income = who the clinic is for: low (low income / Medicaid / uninsured), standard (other insurance or able to pay), all (default). needs = triage categories the clinic is known for (app/triage.py CATEGORIES, e.g. mental_health; dental and pediatrics once triage sorts them). appointment_types = what to book: default for every need, plus one entry per need; each is {appointmenttypeid} or {reasonid}, optionally with providerid. No default = any open slot. hidden = true keeps the clinic out of offers.",
+  "clinics": {
+    "195900:1": {
+      "name": "Athens Health Center",
+      "short": "Athens Health Ctr",
+      "income": "all",
+      "needs": ["mental_health"],
+      "appointment_types": {"default": {"appointmenttypeid": "82"}, "mental_health": {"appointmenttypeid": "101"}},
+      "hidden": false
+    },
+    "195900:2": {
+      "name": "Nelsonville Family Care",
+      "short": "Nelsonville Family",
+      "income": "all",
+      "needs": [],
+      "appointment_types": {"default": {"appointmenttypeid": "82"}},
+      "hidden": false
+    },
+    "195900:3": {
+      "name": "Logan Community Clinic",
+      "short": "Logan Clinic",
+      "income": "standard",
+      "needs": ["dental"],
+      "appointment_types": {"default": {"appointmenttypeid": "82"}, "dental": {"appointmenttypeid": "62"}},
+      "hidden": false
+    },
+    "195900:4": {
+      "name": "Glouster Health Center",
+      "short": "Glouster Health",
+      "income": "low",
+      "needs": ["mental_health"],
+      "appointment_types": {"default": {"appointmenttypeid": "82"}, "mental_health": {"appointmenttypeid": "101"}},
+      "hidden": false
+    },
+    "195901:1": {
+      "name": "Pomeroy Family Practice",
+      "short": "Pomeroy Family",
+      "income": "all",
+      "needs": ["pediatrics"],
+      "appointment_types": {"default": {"appointmenttypeid": "82"}, "pediatrics": {"appointmenttypeid": "71"}},
+      "hidden": false
+    },
+    "195901:2": {
+      "name": "Gallipolis Clinic",
+      "short": "Gallipolis Clinic",
+      "income": "all",
+      "needs": ["mental_health"],
+      "appointment_types": {"default": {"appointmenttypeid": "82"}, "mental_health": {"reasonid": "1101"}},
+      "hidden": false
+    },
+    "195901:3": {
+      "name": "Marietta Health Center",
+      "short": "Marietta Health",
+      "income": "standard",
+      "needs": [],
+      "appointment_types": {"default": {"appointmenttypeid": "82"}},
+      "hidden": false
+    }
+  }
+}

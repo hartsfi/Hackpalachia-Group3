@@ -39,5 +39,17 @@ ATHENA_TIMEOUT = float(os.getenv("ATHENA_TIMEOUT", "") or 20)      # seconds per
 ATHENA_RETRIES = int(os.getenv("ATHENA_RETRIES", "") or 3)         # extra tries after a 429 / 5xx
 ATHENA_BACKOFF = float(os.getenv("ATHENA_BACKOFF", "") or 0.5)     # first wait in seconds, doubled each try
 
+# Clinic finder (app/clinics.py, app/finder.py).
+# sample = the clinics in app/data/services.json; athena = every bookable department of the
+# practices in ATHENA_PRACTICE_IDS, with app/data/clinic_overrides.json on top.
+CLINIC_SOURCE = (os.getenv("CLINIC_SOURCE", "").strip().lower() or "sample")
+CLINIC_OVERRIDES = os.getenv("CLINIC_OVERRIDES", "").strip()             # blank = app/data/clinic_overrides.json
+CLINIC_DIRECTORY_TTL = float(os.getenv("CLINIC_DIRECTORY_TTL", "") or 3600)  # seconds between directory reloads
+CLINIC_TIMEZONE = os.getenv("CLINIC_TIMEZONE", "").strip() or "America/New_York"  # when a department names none
+MAX_CLINIC_MILES = float(os.getenv("MAX_CLINIC_MILES", "") or 45)        # farther clinics are never offered
+CANDIDATES_TO_CHECK = int(os.getenv("CANDIDATES_TO_CHECK", "") or 6)     # nearest clinics whose open times are fetched
+NEED_TAG_BONUS_MILES = float(os.getenv("NEED_TAG_BONUS_MILES", "") or 15)  # head start for a clinic tagged for the need
+ATHENA_SLOT_TIMEOUT = float(os.getenv("ATHENA_SLOT_TIMEOUT", "") or 5)   # seconds to wait for one clinic's open times
+
 TWILIO_ENABLED = bool(TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN)
 DEV_SIMULATOR = (not TWILIO_ENABLED) or os.getenv("DEV_SIMULATOR", "") == "1"
