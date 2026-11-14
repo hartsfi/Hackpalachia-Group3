@@ -96,7 +96,7 @@ check("interpretation recorded next to the original words", any("im on medicaid"
 print("== Picking a visit in words")
 offered = r[-1].split("\n")
 r = text(A, "the second one works")
-check("books the visit", r and r[-1].startswith("Booked:"))
+check("books the visit", r and r[-1].startswith("Booked (ID V-"))
 second = offered[2].split(") ", 1)[1].split(" ")[0] if len(offered) > 2 else ""
 check("booked the option that was second in the list", second and second in r[-1], second)
 
@@ -109,7 +109,7 @@ pick = next((l[0] for l in opts[-1].split("\n") if l[:2] in ("1)", "2)", "3)") a
 r = text(B, pick)
 if not LIVE:
     check("no model calls for ZIP, 1, 1", len(calls) == n, f"{len(calls) - n} calls")
-check("exact answers still book", r and r[-1].startswith("Booked:"))
+check("exact answers still book", r and r[-1].startswith("Booked (ID V-"))
 
 print("== Unclear or out-of-range answers ask again, exactly as before")
 text(C, "hi")

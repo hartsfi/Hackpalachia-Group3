@@ -45,13 +45,13 @@ text(A, "checkup in Athens"); text(A, "Jane Doe"); r = text(A, "2")
 pick = athena_line(r[-1]["body"]); check("athena clinic offered with a live open time", pick, pick)
 r = text(A, pick); check("asks only the date of birth (name is known from sign-up)", "date of birth" in r[-1]["body"] and "first and last" not in r[-1]["body"])
 r = text(A, "Jane"); check("unclear answer is asked again", "MM/DD/YYYY" in r[-1]["body"])
-r = text(A, "Jane Doe 03/14/1980"); check("booked in athenahealth, confirmation sent", r[-1]["body"].startswith("Booked: Athens Health Ctr"))
+r = text(A, "Jane Doe 03/14/1980"); check("booked in athenahealth, confirmation sent", r[-1]["body"].startswith("Booked (ID V-"))
 st = get(F + "/_state"); check("fake athena has the booking and a new patient", len(st["booked"]) == 1 and st["patients"] == 1, st)
 first = list(st["booked"])[0]
 
 print("== Reschedule within athenahealth (no second identity question)")
 r = text(A, "RESCHEDULE"); pick = athena_line(r[-1]["body"]); check("new athena times offered", pick, pick)
-r = text(A, pick); check("moved without asking name again", r[-1]["body"].startswith("Moved: Athens Health Ctr"))
+r = text(A, pick); check("moved without asking name again", r[-1]["body"].startswith("Moved (ID V-"))
 st = get(F + "/_state"); check("old athena visit cancelled, new one booked", first in st["cancelled"] and len(st["booked"]) == 1 and first not in st["booked"], st)
 
 print("== Cancel")
@@ -66,7 +66,7 @@ offer = [o for o in json.loads(get(B + f"/api/cases/{case['id']}")["case"]["offe
 post(F + f"/_take/{offer['ext']}")
 text(C, pick); r = text(C, "John Roe 7/4/1975")
 check("told it was taken, offered next athena times", "just taken" in r[-1]["body"] and "1)" in r[-1]["body"])
-r = text(C, "1"); check("books the next time", r[-1]["body"].startswith("Booked: Athens Health Ctr"))
+r = text(C, "1"); check("books the next time", r[-1]["body"].startswith("Booked (ID V-"))
 
 print("== athenahealth down")
 text(D, "checkup in Athens"); text(D, "Ann Poe"); r = text(D, "2"); pick = athena_line(r[-1]["body"])

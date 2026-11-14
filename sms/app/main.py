@@ -256,7 +256,7 @@ def dev_demo_patient():
 
 @app.get("/dev/phone/{phone}", dependencies=[Depends(dev_only)])
 def dev_phone(phone: str, since: int = 0):
-    return db.phone_messages(phone, since)
+    return db.phone_messages(sms_mod.normalize(phone), since)
 
 
 @app.post("/dev/reminders", dependencies=[Depends(dev_only)])
