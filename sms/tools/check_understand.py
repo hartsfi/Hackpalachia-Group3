@@ -61,14 +61,14 @@ if not LIVE:
     understand._ask = fake_ask
     config.UNDERSTAND_ENABLED = True
     SCRIPT.update({
-        "bad cough, im out in nelsonvile": {"zip": "45764"},
+        "bad cough, im out in nelsonvile": {"town": "Nelsonville"},
         "im on medicaid": {"answer": "1"},
         "why do you need to know": {"answer": "unclear"},
         "the second one works": {"option": 2},
         "none of those work, i need evenings": {"option": 0},
         "sure": {"option": -1},
         "whichever": {"option": 9},
-        "somewhere near mars": {"zip": "99999"},
+        "somewhere near mars": {"town": "Atlantis"},
     })
 print(f"== {'LIVE model' if LIVE else 'scripted stand-in'}; understanding enabled: {understand.enabled()}")
 if LIVE and not understand.enabled():
