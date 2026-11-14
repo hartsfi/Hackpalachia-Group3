@@ -66,6 +66,14 @@ TEXT = {
                         "ZIP code or town.",
         "welcome": "TextBridge health line: replies to your texts, visit bookings and reminders. "
                    "Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
+        "ask_name": "To set up your TextBridge account, reply with your first and last name (or SKIP).",
+        "name_again": "Please reply with just your first and last name, like Jane Doe, or SKIP.",
+        "account": "Thanks {first}! Your TextBridge ID is {code}. Keep it for your visits.",
+        "account_noname": "OK. Your TextBridge ID is {code}. Keep it for your visits.",
+        "welcome_back": "Welcome back {first}! What do you need care for, and what is your ZIP code or "
+                        "town? If this is an emergency, call 911.",
+        "my_id": "Your TextBridge ID is {code}{name}.",
+        "identity_dob": "To book at {short}, reply with your date of birth, like 03/14/1980",
         "identity": "To book at {short}, reply with your first and last name and date of birth, "
                     "like: Jane Doe 03/14/1980",
         "identity_again": "Please send first name, last name and date of birth as MM/DD/YYYY, like: "
@@ -109,6 +117,14 @@ TEXT = {
                         "necesita y su codigo postal.",
         "welcome": "Linea de salud TextBridge: respuestas, citas y recordatorios. Pueden aplicar "
                    "tarifas de mensajes y datos. HELP para ayuda, STOP para salir.",
+        "ask_name": "Para crear su cuenta de TextBridge, responda con su nombre y apellido (o SKIP).",
+        "name_again": "Responda solo con su nombre y apellido, como Ana Diaz, o SKIP.",
+        "account": "Gracias {first}! Su numero de TextBridge es {code}. Guardelo para sus citas.",
+        "account_noname": "Listo. Su numero de TextBridge es {code}. Guardelo para sus citas.",
+        "welcome_back": "Bienvenido otra vez {first}! ¿Que atencion necesita y cual es su codigo postal o "
+                        "pueblo? Emergencia: 911.",
+        "my_id": "Su numero de TextBridge es {code}{name}.",
+        "identity_dob": "Para reservar en {short}, responda con su fecha de nacimiento, asi: 03/14/1980",
         "identity": "Para reservar en {short}, responda con su nombre, apellido y fecha de "
                     "nacimiento, asi: Ana Diaz 03/14/1980",
         "identity_again": "Envie nombre, apellido y fecha de nacimiento como MM/DD/AAAA, asi: Ana "
@@ -193,6 +209,10 @@ def _from_patient(phone: str, body: str) -> None:
         sms.send(phone, _t(case["language"] if case else "en", "help"), case_id, "system")
         return
 
+    if word in ("my id", "id"):
+        _send_my_id(phone, case)
+        return
+
     if word in CANCEL_VISIT or word in RESCHEDULE:
         _change_visit(phone, body, word, case)
         return
@@ -203,7 +223,9 @@ def _from_patient(phone: str, body: str) -> None:
 
     db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     stage = case["stage"]
-    if stage == "ask_where":
+    if stage == "ask_name":
+        _on_name(case, body)
+    elif stage == "ask_where":
         _on_where(case, body, tri)
     elif stage == "ask_income":
         _on_income(case, word)
@@ -235,15 +257,70 @@ def _new_case(phone: str, body: str, tri: dict) -> None:
     _notify_chws(case, f"[#{case_id} {tri['urgency'].upper()} {tri['category']}] {_tail(phone)}: {body}\n"
                        f"Summary: {tri['summary']}\nReply: #{case_id} your message")
     place = _find_place(body, tri)
-    if place:
-        _ask_income(case, place)
+    if place:  # remember a place named in the first text for after sign-up
+        db.update_case(case_id, zip=place["zip"], town=place["town"])
+    patient = db.get_patient(phone)
+    if patient is None or patient["first_name"] is None:
+        # New number (or never answered): create the account, ask for a name first.
+        # first_name: NULL = not asked/answered yet, "" = texted SKIP, else their name.
+        db.create_patient(phone, tri["language"])
+        db.update_case(case_id, stage="ask_name")
+        sms.send(phone, _t(tri["language"], "ask_name"), case_id, "system")
+        return
+    db.update_patient(phone)
+    _continue_after_hello(db.get_case(case_id), patient)
+
+
+def _continue_after_hello(case, patient) -> None:
+    """Returning person (or just signed up): go to the place, or ask for it."""
+    first = (patient["first_name"] or "").strip() if patient else ""
+    if case["zip"]:
+        _ask_income(case, services.find_place(case["zip"]))
+    elif first:
+        db.update_case(case["id"], stage="ask_where")
+        sms.send(case["patient_phone"], _t(case["language"], "welcome_back", first=first[:15]), case["id"], "system")
     else:
-        db.update_case(case_id, stage="ask_where")
-        sms.send(phone, _t(tri["language"], "start"), case_id, "system")
+        db.update_case(case["id"], stage="ask_where")
+        sms.send(case["patient_phone"], _t(case["language"], "start"), case["id"], "system")
+
+
+NAME_WORD = re.compile(r"^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]*$")
+
+
+def _on_name(case, body: str) -> None:
+    phone, lang = case["patient_phone"], case["language"]
+    words = body.strip().split()
+    patient = db.get_patient(phone) or db.create_patient(phone, lang)
+    code = db.patient_code(patient["id"])
+    if len(words) == 1 and words[0].lower() == "skip":
+        db.update_patient(phone, first_name="", last_name="")
+        sms.send(phone, _t(lang, "account_noname", code=code), case["id"], "system")
+    elif 1 <= len(words) <= 4 and all(NAME_WORD.match(w) for w in words) and not GREETING.match(body.strip()):
+        first, last = words[0].title(), (words[-1].title() if len(words) > 1 else "")
+        db.update_patient(phone, first_name=first, last_name=last)
+        sms.send(phone, _t(lang, "account", first=first[:15], code=code), case["id"], "system")
+        _notify_chws(case, f"[#{case['id']}] {first} {last} signed up as {code}")
+    else:
+        sms.send(phone, _t(lang, "name_again"), case["id"], "system")
+        return
+    _continue_after_hello(db.get_case(case["id"]), None)
+
+
+def _send_my_id(phone: str, case) -> None:
+    lang = case["language"] if case else "en"
+    patient = db.get_patient(phone)
+    db.add_message(case["id"] if case else None, "patient", phone, config.CLINIC_NUMBER, "MY ID", "inbound")
+    if not patient:
+        sms.send(phone, _t(lang, "start"), case["id"] if case else None, "system")
+        return
+    name = " ".join(x for x in (patient["first_name"], patient["last_name"]) if x)
+    sms.send(phone, _t(lang, "my_id", code=db.patient_code(patient["id"]), name=f" ({name})" if name else ""),
+             case["id"] if case else None, "system")
 
 
 def _ask_income(case, place: dict) -> None:
     db.update_case(case["id"], stage="ask_income", zip=place["zip"], town=place["town"])
+    db.update_patient(case["patient_phone"], zip=place["zip"], town=place["town"])
     sms.send(case["patient_phone"], _t(case["language"], "place_ok", **place), case["id"], "system")
 
 
@@ -277,6 +354,7 @@ def _on_income(case, word: str) -> None:
         sms.send(case["patient_phone"], _t(case["language"], "income_again"), case["id"], "system")
         return
     db.update_case(case["id"], income=income)
+    db.update_patient(case["patient_phone"], income=income)
     _offer(db.get_case(case["id"]), services.options(income, _place_of(case)), "options")
 
 
@@ -318,7 +396,9 @@ def _on_slot(case, word: str) -> None:
     pick = opts[int(word) - 1]
     if services.uses_athena(pick["service_id"]) and not db.athena_patient(phone):
         db.update_case(case["id"], stage="ask_identity", pick=json.dumps(pick))
-        sms.send(phone, _t(lang, "identity", short=pick["short"]), case["id"], "system")
+        patient = db.get_patient(phone)
+        key = "identity_dob" if patient and patient["first_name"] and patient["last_name"] else "identity"
+        sms.send(phone, _t(lang, key, short=pick["short"]), case["id"], "system")
         return
     _book_pick(case, pick)
 
@@ -390,6 +470,10 @@ def _parse_identity(text: str) -> tuple[str, str, str] | None:
 def _on_identity(case, body: str) -> None:
     lang, phone = case["language"], case["patient_phone"]
     parsed = _parse_identity(body)
+    patient = db.get_patient(phone)
+    if not parsed and patient and patient["first_name"] and patient["last_name"]:
+        dob = _parse_identity(f"{patient['first_name']} {patient['last_name']} {body}")
+        parsed = dob
     if not parsed:
         sms.send(phone, _t(lang, "identity_again"), case["id"], "system")
         return

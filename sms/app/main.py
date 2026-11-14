@@ -113,7 +113,10 @@ class Reply(BaseModel):
 
 @app.get("/api/cases", dependencies=[Depends(staff)])
 def api_cases(status: str | None = None):
-    return db.list_cases(status)
+    rows = db.list_cases(status)
+    for r in rows:
+        r["patient_code"] = db.patient_code(r["patient_id"]) if r.get("patient_id") else None
+    return rows
 
 
 @app.get("/api/cases/{case_id}", dependencies=[Depends(staff)])
@@ -125,7 +128,10 @@ def api_case(case_id: int):
     for b in db.case_bookings(case_id):
         svc = services.clinics().get(b["service_id"], {})
         bookings.append({**b, "clinic": svc.get("short", b["service_id"]), "when": services.when(b["start_ts"])})
-    return {"case": dict(case), "messages": db.case_messages(case_id), "bookings": bookings}
+    pt = db.get_patient(case["patient_phone"])
+    patient = {"code": db.patient_code(pt["id"]), "first_name": pt["first_name"], "last_name": pt["last_name"],
+               "since": pt["created_at"]} if pt else None
+    return {"case": dict(case), "messages": db.case_messages(case_id), "bookings": bookings, "patient": patient}
 
 
 @app.post("/api/cases/{case_id}/reply", dependencies=[Depends(staff)])

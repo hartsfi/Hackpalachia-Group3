@@ -48,6 +48,7 @@ let selected = null, lastThread = "";
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const when = t => new Date(t * 1000).toLocaleString([], {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"});
+const who = c => [c.first_name, c.last_name].filter(Boolean).join(" ") || c.patient_phone;
 const label = m => ({patient:"Patient", chw:"Health worker (text)", dashboard:"Health worker (dashboard)", system:"Auto"}[m.sender]);
 
 async function loadList() {
@@ -57,7 +58,7 @@ async function loadList() {
     <div class="case ${c.id === selected ? "sel" : ""} ${c.status}" data-id="${c.id}">
       <div class="top">#${c.id} <span class="pill ${c.urgency}">${c.urgency}</span>
         <span class="cat">${esc(c.category.replace("_", " "))}</span>${c.booked ? ' <span class="pill booked">booked</span>' : ""}
-        <span style="flex:1"></span><span class="cat">${esc(c.patient_phone)}</span></div>
+        <span style="flex:1"></span><span class="cat">${esc(who(c))}</span></div>
       <div class="msg">${esc(c.last_patient_message)}</div>
     </div>`).join("") || '<div class="case"><div class="msg">No cases</div></div>';
   document.querySelectorAll(".case[data-id]").forEach(el => el.onclick = () => { selected = +el.dataset.id; lastThread = ""; loadList(); loadCase(); });
@@ -67,14 +68,15 @@ async function loadCase() {
   if (!selected) return;
   const r = await fetch("/api/cases/" + selected);
   if (!r.ok) return;
-  const { case: c, messages, bookings } = await r.json();
+  const { case: c, messages, bookings, patient } = await r.json();
   const key = JSON.stringify([c.status, c.assigned_chw, messages.length, bookings.map(b => b.status)]);
   if (key === lastThread) return;
   lastThread = key;
   const thread = messages.filter(m => !(m.sender === "system" && m.to_phone !== c.patient_phone));
   $("#detail").innerHTML = `
     <div id="head">${c.status === "open" ? '<button class="ghost" id="close">Close case</button>' : ""}
-      <b>#${c.id} · ${esc(c.patient_phone)}</b> <span class="pill ${c.urgency}">${c.urgency}</span>
+      <b>#${c.id} · ${esc(patient && (patient.first_name || patient.last_name) ? [patient.first_name, patient.last_name].filter(Boolean).join(" ") : "Name not given")}</b>
+      <span class="cat">${patient ? esc(patient.code) + " · " : "no account yet · "}${esc(c.patient_phone)}</span> <span class="pill ${c.urgency}">${c.urgency}</span>
       <span class="cat">${esc(c.category.replace("_", " "))} · ${c.status}${c.assigned_chw ? " · worker " + esc(c.assigned_chw) : " · unclaimed"}</span>
       <div class="sum">${esc(c.summary)}</div>
       <div class="sum">${c.town ? "Location: " + esc(c.town) + " " + esc(c.zip) : "Location: not given yet"}${c.income ? " · income: " + (c.income === "low" ? "low / Medicaid / uninsured" : "other insurance or can pay") : ""}</div>

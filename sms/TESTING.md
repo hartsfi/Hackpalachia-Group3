@@ -20,14 +20,15 @@ To start over, stop the server and delete `sms/textbridge.db`.
 
 | # | Phone | Type | You should see |
 |---|-------|------|----------------|
-| 1 | Patient | `hi` | "What do you need care for, and what is your ZIP code or town?" |
+| 1 | Patient | `hi` | Welcome text, then "reply with your first and last name (or SKIP)" |
+| 1b | Patient | `Jane Doe` | "Thanks Jane! Your TextBridge ID is TB-1001", then "What do you need care for…" |
 | 2 | Patient | `Columbus` | "Sorry, I could not find that place…" (asks again) |
 | 3 | Patient | `need a checkup, 45764` | "Got it: Nelsonville, OH 45764. Reply 1 if low income…" |
 | 4 | Patient | `1` | Up to 3 numbered visits: name, miles, next time. Mobile health unit first. |
 | 5 | Patient | `1` | "Booked: Nelsonville Mobile, Tue 11/17 10AM, Library parking lot… Call 740-555-0110…". Dashboard shows "booked". |
 | 6 | Patient | `RESCHEDULE`, then `2` | New times, then "Moved: …". |
 | 7 | Patient | `CANCEL VISIT` | "Your visit … is cancelled." |
-| 8 | Patient (new number, e.g. `+17405552222`) | `checkup in Nelsonville`, `2` | Options for "other insurance": clinics and hospitals instead of the mobile unit. |
+| 8 | Patient (new number, e.g. `+17405550124`) | `checkup in Nelsonville`, a name, `2` | Options for "other insurance": clinics and hospitals instead of the mobile unit. |
 
 **Slot taken:** use two patient numbers. Get both to the options list (steps 3–4) before either
 books, then book `1` on the first and `1` on the second. The second gets "Sorry, that time was
@@ -49,6 +50,9 @@ It is read as Nelsonville. Basic phones type a ZIP or town.
 | Patient, in the middle of booking | `my dad has chest pain` | "call 911", booking stops |
 | Patient | `STOP` | No reply from us (Twilio sends its own). Nothing more reaches that phone, even worker replies and reminders. `START` turns it back on. |
 | Patient (new number) | `hola, necesito una cita en Athens` | Replies in Spanish |
+
+**Returning user:** close the case from the dashboard, then text `hi` again from the same number:
+"Welcome back Jane!" with no sign-up. `MY ID` returns the ID and name.
 
 ### Health worker side
 

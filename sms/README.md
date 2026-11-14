@@ -19,6 +19,12 @@ Clinics can be connected to **athenahealth** (athenaOne): their open times come 
 athenahealth and visits are booked, moved and cancelled there (see "athenahealth booking" in
 [TESTING.md](TESTING.md)). The others use the mock calendar.
 
+**Accounts.** Each phone number gets one account in the `patients` table, stored in the server's
+SQLite database (`textbridge.db`, kept across restarts). A new number is asked for a first and last
+name (or SKIP) and gets a TextBridge ID like `TB-1001`; a returning number is welcomed back by name.
+`MY ID` texts the ID back. The account remembers town, ZIP and insurance answer, and the dashboard
+shows the name and ID on each case. Emergencies are answered before any sign-up question.
+
 **LLM brain.** Free-text messages are read by a local model through Ollama (default
 `llama3.1:8b`, set `LLM_PROVIDER` / `OLLAMA_MODEL` in `.env`), so patient texts never leave the
 machine. It picks out the need, urgency, place (typos included) and a one-line summary for the
@@ -50,7 +56,7 @@ uv run uvicorn app.main:app --reload --port 8790
 | `#12 close`     | Closes case 12                         |
 | `LIST`          | Lists open cases                       |
 
-Patients can text `CANCEL VISIT`, `RESCHEDULE`, `HELP`, `STOP` and `START`.
+Patients can text `MY ID`, `CANCEL VISIT`, `RESCHEDULE`, `HELP`, `STOP` and `START`.
 
 ## Connect real phones
 
