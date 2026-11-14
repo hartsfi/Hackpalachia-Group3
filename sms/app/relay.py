@@ -8,7 +8,8 @@ Patient booking conversation (case.stage):
   ask_income  1 = low income / Medicaid / no insurance, 2 = other insurance or can pay
   ask_slot    up to three numbered visits (name, distance, next time); reply a number
   ask_identity  athenahealth clinics only, once per phone: name + date of birth for the patient record
-  booked / done / None   free texting with the health worker
+  booked / done / None   no question waiting: the agent (agent.py) answers their questions with
+              tools, or the text goes to a health worker, who is told and the patient told so
 Replies in the patient's own words ("im on medicaid", "the tuesday one") are mapped to the exact
 answer by understand.py when Claude is on; the questions, replies and bookings stay scripted.
 Emergencies skip all of this: 911 / 988 first, CHWs alerted, no booking.
@@ -19,9 +20,10 @@ import difflib
 import json
 import logging
 import re
+import time
 
-from . import athena, config, db, services, sms, understand
-from .triage import CRISIS_WORDS, EMERGENCY_WORDS, triage
+from . import agent, athena, config, db, services, sms, understand
+from .triage import CHEST_WORDS, CRISIS_WORDS, EMERGENCY_WORDS, triage
 
 log = logging.getLogger("relay")
 
@@ -73,6 +75,13 @@ TEXT = {
                 "4 Mobile clinic\n5 My visit\nEmergency: call 911",
         "welcome_back_menu": "Welcome back {first}!",
         "chw_soon": "OK. A health worker will text you here soon.",
+        "handoff": "Thanks. A health worker will text you back here soon. Text MY VISIT for your visit or "
+                   "HELP for options.",
+        "after_emergency": "A health worker has your message and will text you here. If it is an emergency or "
+                           "gets worse, call 911 now.",
+        "chest": "Chest pain can be a heart attack. Call 911 if it's crushing, spreads to your arm or jaw, or "
+                 "you're sweaty or short of breath. Mild? Reply 1 for a health worker.",
+        "chest_mild": "OK. A health worker will text you soon to get you seen today. If it gets worse, call 911 now.",
         "ride_offer": "Need a ride to your visit? Reply RIDE.",
         "ride_medicaid": "Medicaid covers free rides to medical visits: call the number on your plan card, or "
                          "Ohio Medicaid at 1-800-324-8680.",
@@ -158,6 +167,14 @@ TEXT = {
                 "4 Clinica movil\n5 Mi cita\nEmergencia: 911",
         "welcome_back_menu": "¡Bienvenido otra vez {first}!",
         "chw_soon": "Bien. Un trabajador de salud le escribira aqui pronto.",
+        "handoff": "Gracias. Un trabajador de salud le escribira aqui pronto. Escriba MI CITA para su "
+                   "cita o HELP para opciones.",
+        "after_emergency": "Un trabajador de salud tiene su mensaje y le escribira aqui. Si es una emergencia o "
+                           "empeora, llame al 911 ahora.",
+        "chest": "El dolor de pecho puede ser un infarto. Llame al 911 si es fuerte, se extiende al brazo o la "
+                 "mandibula, o tiene sudor o falta de aire. Si es leve, responda 1.",
+        "chest_mild": "Bien. Un trabajador de salud le escribira pronto para que lo vean hoy. Si empeora, llame "
+                      "al 911 ahora.",
         "ride_offer": "¿Necesita transporte a su cita? Responda RIDE.",
         "ride_medicaid": "Medicaid cubre viajes gratis a citas medicas: llame al numero de su tarjeta del plan, "
                          "o a Ohio Medicaid al 1-800-324-8680.",
@@ -312,6 +329,14 @@ def _from_patient(phone: str, body: str) -> None:
     if word == understand.EMERGENCY:  # Claude read the reply as an emergency the keywords missed
         _emergency(phone, heard, case, logged=True)
         return
+    if stage in ASKS_BACK_OK and body == heard and _asks_back(heard) and agent.enabled():
+        # A question back instead of an answer ("why do you need that?"): answer it, then ask again.
+        question = _last_question(case)
+        got = agent.reply(case, heard, pending=question)
+        if got == "answered" and question and db.get_case(case_id)["stage"] == stage:
+            sms.send(phone, question, case_id, "system")
+        if got:
+            return
     if stage == "ask_visit" and word in ("2", "3"):  # after "my visit": 2 = cancel, 3 = reschedule
         _change_visit(phone, body, "cancel visit" if word == "2" else "reschedule", case)
     elif stage == "menu":
@@ -334,8 +359,67 @@ def _from_patient(phone: str, body: str) -> None:
         _on_med(case, word, body)
     elif stage == "ask_callhelp":
         _on_callhelp(case, word, body)
-    else:
+    elif _worker_talking(case):  # mid-conversation with a health worker: straight to them
         _notify_chws(case, f"[#{case_id}] {_tail(phone)}: {body}")
+    elif stage == "ask_chest":
+        _on_chest(case, word, body)
+    elif case["urgency"] == "emergency":
+        # After an emergency a person takes over: no bot answers, but never silence either.
+        _notify_chws(case, f"[#{case_id} EMERGENCY] {_tail(phone)}: {body}")
+        ack = _t(case["language"], "after_emergency")
+        if not any(m["body"] in (ack, _t(case["language"], "chest_mild")) for m in db.case_messages(case_id)):
+            sms.send(phone, ack, case_id, "system")
+    elif not agent.reply(case, body):  # a question of their own: the agent answers with tools
+        _hand_off(case, body)
+
+
+# Questions where a question back gets an answer. Not the name, date-of-birth or pickup address
+# steps: those answers are identity details and never go to the model.
+ASKS_BACK_OK = {"ask_where", "ask_income", "ask_slot", "ask_ride", "ask_med", "ask_callhelp"}
+QUESTION_WORDS = {"why", "what", "whats", "what's", "how", "who", "where", "when", "which", "is", "are", "can",
+                  "could", "do", "does", "will", "would", "should", "porque", "por", "que", "como", "donde", "cuando"}
+
+
+def _asks_back(text: str) -> bool:
+    words = text.lower().split()
+    return bool(words) and ("?" in text or "¿" in text or words[0].strip("¿") in QUESTION_WORDS)
+
+
+def _last_question(case) -> str | None:
+    """The last scripted text sent to the patient: the question that is still waiting."""
+    for m in reversed(db.case_messages(case["id"])):
+        if m["to_phone"] == case["patient_phone"] and m["sender"] == "system":
+            return m["body"]
+    return None
+
+
+def _on_chest(case, word: str, body: str) -> None:
+    """After the chest-pain text: 1 = mild, a health worker gets them seen today. Anything else: a person."""
+    phone, lang = case["patient_phone"], case["language"]
+    db.update_case(case["id"], stage=None)
+    if word in YES:
+        sms.send(phone, _t(lang, "chest_mild"), case["id"], "system")
+        _notify_chws(case, f"[#{case['id']} CHEST PAIN, says mild] {_tail(phone)} wants to be seen today. "
+                           f"Call them now to check. Reply: #{case['id']} your message")
+        return
+    _notify_chws(case, f"[#{case['id']} EMERGENCY] {_tail(phone)}: {body}")
+    sms.send(phone, _t(lang, "after_emergency"), case["id"], "system")
+
+
+def _worker_talking(case) -> bool:
+    """A health worker texted this patient last, within the past 30 minutes."""
+    for m in reversed(db.case_messages(case["id"])):
+        if m["to_phone"] == case["patient_phone"]:
+            return m["sender"] in ("chw", "dashboard") and time.time() - (m["created_at"] or 0) < 1800
+    return False
+
+
+def _hand_off(case, body: str, reason: str = "") -> None:
+    """A health worker takes it from here, and the patient is told so (never silence)."""
+    phone = case["patient_phone"]
+    _notify_chws(case, f"[#{case['id']}] {_tail(phone)}: {body}" + (f"\n({reason})" if reason else "")
+                       + f"\nReply: #{case['id']} your message")
+    sms.send(phone, _t(case["language"], "handoff"), case["id"], "system")
 
 
 def _emergency(phone: str, body: str, case, tri: dict | None = None, logged: bool = False) -> None:
@@ -350,8 +434,11 @@ def _emergency(phone: str, body: str, case, tri: dict | None = None, logged: boo
     case_id = case["id"]
     if not logged:
         db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
-    db.update_case(case_id, urgency="emergency", stage=None)
-    key = "crisis" if CRISIS_WORDS.search(body) else "emergency"
+    # Chest pain alone gets the warning signs and a way to reach a person if it is mild (it is often
+    # heartburn), but still 911 first. With any other emergency sign it gets the plain 911 reply.
+    chest_only = bool(CHEST_WORDS.search(body)) and not EMERGENCY_WORDS.search(CHEST_WORDS.sub(" ", body))
+    db.update_case(case_id, urgency="emergency", stage="ask_chest" if chest_only else None)
+    key = "crisis" if CRISIS_WORDS.search(body) else "chest" if chest_only else "emergency"
     sms.send(phone, _t(case["language"], key), case_id, "system")
     _notify_chws(case, f"[#{case_id} EMERGENCY] {_tail(phone)}: {body}\nReply: #{case_id} your message")
 
@@ -359,7 +446,9 @@ def _emergency(phone: str, body: str, case, tri: dict | None = None, logged: boo
 MY_VISIT = re.compile(
     r"^(my |next |my next )?(visit|appointment|appt|booking)s?\W*$|"
     r"\b(when|what time|where)\b.*\b(my|the)\b.*\b(appointment|appt|visit|booking)\b|"
-    r"\b(do i have|have i got)\b.*\b(appointment|appt|visit)\b|^cita$|^mi cita\W*$", re.I)
+    r"\b(do i have|have i got)\b.*\b(appointment|appt|visit)\b|^cita$|^mi cita\W*$|"
+    r"\baddress\b.*\b(visit|appointment|appt|booked|booking|clinic)\b|"
+    r"\b(visit|appointment|appt|booking|clinic)\b.*\baddress\b", re.I)
 
 
 def _close(w: str, targets: tuple[str, ...], cutoff: float = 0.72) -> bool:
@@ -946,7 +1035,7 @@ def _booking_down(case, err: Exception, what: str) -> None:
     _notify_chws(case, f"[#{case['id']}] athenahealth is not answering; please {what} by phone.")
 
 
-def _change_visit(phone: str, body: str, word: str, case) -> None:
+def _change_visit(phone: str, body: str, word: str, case, log: bool = True) -> None:
     booking = db.active_booking(phone)
     if booking:
         case = db.get_case(booking["case_id"])
@@ -954,7 +1043,8 @@ def _change_visit(phone: str, body: str, word: str, case) -> None:
             db.update_case(case["id"], status="open")
             case = db.get_case(case["id"])
     case_id = case["id"] if case else None
-    db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
+    if log:
+        db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     lang = case["language"] if case else "en"
     if not booking:
         sms.send(phone, _t(lang, "no_booking"), case_id, "system")
