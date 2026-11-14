@@ -68,6 +68,18 @@ TEXT = {
                         "ZIP code or town.",
         "welcome": "CareLine health line: replies to your texts, visit bookings and reminders. "
                    "Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
+        "where_med": "To find a pharmacy near you, what is your ZIP code or town?",
+        "where_need": "Got it. What is your ZIP code or town, so we can find care near you?",
+        "welcome_back_visit": "Welcome back {first}! Your next visit: {when}, {short}. Text what you need, or "
+                              "MY VISIT for details.",
+        "my_visit": "Your next visit: {when}, {short}, {address}, {town}. Call {phone}. Text CANCEL VISIT or "
+                    "RESCHEDULE to change.",
+        "no_visit": "You have no upcoming visit. Text what care you need to book one.",
+        "pharm_header": "Pharmacies near you (call first):",
+        "med_tip": "Ask the pharmacist about an emergency refill. Reply 1 to book a doctor visit for a new "
+                   "prescription, or 2 for a health worker to call you.",
+        "med_chw_ok": "OK. A health worker will contact you here soon.",
+        "pharm_need_place": "Text PHARMACY and your ZIP code or town, like PHARMACY 45764.",
         "call_info": "Mobile clinic {when}, {where}, {town}. Free, ages 18-64. Call {phone} to book, "
                      "or reply 1 and we will call for you.",
         "callhelp_ok": "OK. A health worker will call the mobile clinic to book for you and text you here.",
@@ -124,6 +136,18 @@ TEXT = {
                         "necesita y su codigo postal.",
         "welcome": "Linea de salud CareLine: respuestas, citas y recordatorios. Pueden aplicar "
                    "tarifas de mensajes y datos. HELP para ayuda, STOP para salir.",
+        "where_med": "Para buscar una farmacia cerca, ¿cual es su codigo postal o pueblo?",
+        "where_need": "Entendido. ¿Cual es su codigo postal o pueblo, para buscar atencion cerca?",
+        "welcome_back_visit": "Bienvenido otra vez {first}! Su proxima cita: {when}, {short}. Escriba que "
+                              "necesita, o MY VISIT para detalles.",
+        "my_visit": "Su proxima cita: {when}, {short}, {address}, {town}. Tel {phone}. CANCELAR CITA o "
+                    "CAMBIAR CITA para cambiar.",
+        "no_visit": "No tiene citas. Escriba que atencion necesita para reservar una.",
+        "pharm_header": "Farmacias cerca (llame primero):",
+        "med_tip": "Pregunte al farmaceutico por un resurtido de emergencia. Responda 1 para una cita para "
+                   "una receta nueva, o 2 para que le llame un trabajador de salud.",
+        "med_chw_ok": "Bien. Un trabajador de salud le escribira aqui pronto.",
+        "pharm_need_place": "Escriba PHARMACY y su codigo postal o pueblo, asi: PHARMACY 45764.",
         "call_info": "Clinica movil {when}, {where}, {town}. Gratis, 18-64 años. Llame al {phone} para "
                      "reservar, o responda 1 y le llamamos.",
         "callhelp_ok": "Bien. Un trabajador de salud llamara a la clinica movil para reservar y le escribira aqui.",
@@ -221,8 +245,16 @@ def _from_patient(phone: str, body: str) -> None:
         sms.send(phone, _t(case["language"] if case else "en", "help"), case_id, "system")
         return
 
+    if word.split(" ")[0] in ("pharmacy", "pharmacies", "farmacia", "farmacias"):
+        _send_pharmacies(phone, case, body)
+        return
+
     if word in ("mobile", "mobile clinic", "movil", "clinica movil"):
         _send_mobile_route(phone, case, body)
+        return
+
+    if MY_VISIT.search(word):
+        _send_my_visit(phone, case, body)
         return
 
     if word in ("my id", "id"):
@@ -251,10 +283,29 @@ def _from_patient(phone: str, body: str) -> None:
         _on_slot(case, word)
     elif stage == "ask_identity":
         _on_identity(case, body)
+    elif stage == "ask_med":
+        _on_med(case, word, body)
     elif stage == "ask_callhelp":
         _on_callhelp(case, word, body)
     else:
         _notify_chws(case, f"[#{case_id}] {_tail(phone)}: {body}")
+
+
+MY_VISIT = re.compile(
+    r"^(my |next |my next )?(visit|appointment|appt|booking)s?\W*$|"
+    r"\b(when|what time|where)\b.*\b(my|the)\b.*\b(appointment|appt|visit|booking)\b|"
+    r"\b(do i have|have i got)\b.*\b(appointment|appt|visit)\b|^cita$|^mi cita\W*$", re.I)
+
+
+def _send_my_visit(phone: str, case, body: str) -> None:
+    lang = case["language"] if case else "en"
+    case_id = case["id"] if case else None
+    db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
+    b = db.active_booking(phone)
+    if not b:
+        sms.send(phone, _t(lang, "no_visit"), case_id, "system")
+        return
+    sms.send(phone, _t(lang, "my_visit", **_visit_fields(b["service_id"], b["start_ts"])), case_id, "system")
 
 
 def _is_free_text(word: str) -> bool:
@@ -270,7 +321,7 @@ def _find_place(body: str, tri: dict | None) -> dict | None:
 
 
 def _new_case(phone: str, body: str, tri: dict) -> None:
-    first_contact = db.is_first_contact(phone)
+    first_contact = db.is_first_contact(phone) and db.get_patient(phone) is None  # account holders aren't new
     case_id = db.create_case(phone, tri)
     db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     case = db.get_case(case_id)
@@ -294,16 +345,33 @@ def _new_case(phone: str, body: str, tri: dict) -> None:
 
 
 def _continue_after_hello(case, patient) -> None:
-    """Returning person (or just signed up): go to the place, or ask for it."""
+    """Returning person (or just signed up): use what we know, ask only for what is missing."""
+    patient = patient or db.get_patient(case["patient_phone"])
     first = (patient["first_name"] or "").strip() if patient else ""
-    if case["zip"]:
-        _ask_income(case, services.find_place(case["zip"]))
+    lang, phone = case["language"], case["patient_phone"]
+    booking = db.active_booking(phone)
+    # A returning person who said hello: greet them with their next visit, if they have one.
+    if booking and first and case["category"] == "other" and not case["zip"]:
+        db.update_case(case["id"], stage="ask_where")
+        sms.send(phone, _t(lang, "welcome_back_visit", first=first[:15],
+                           **_visit_fields(booking["service_id"], booking["start_ts"])), case["id"], "system")
+        return
+    place = services.find_place(case["zip"]) if case["zip"] else None
+    if not place and case["category"] != "other" and patient and patient["zip"]:
+        place = services.find_place(patient["zip"])  # their saved town, so we don't ask again
+    if place:
+        _after_place(case, place)
+        return
+    db.update_case(case["id"], stage="ask_where")
+    if case["category"] == "medication":
+        key, kw = "where_med", {}
+    elif case["category"] != "other":
+        key, kw = "where_need", {}
     elif first:
-        db.update_case(case["id"], stage="ask_where")
-        sms.send(case["patient_phone"], _t(case["language"], "welcome_back", first=first[:15]), case["id"], "system")
+        key, kw = "welcome_back", {"first": first[:15]}
     else:
-        db.update_case(case["id"], stage="ask_where")
-        sms.send(case["patient_phone"], _t(case["language"], "start"), case["id"], "system")
+        key, kw = "start", {}
+    sms.send(phone, _t(lang, key, **kw), case["id"], "system")
 
 
 NAME_WORD = re.compile(r"^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]*$")
@@ -340,6 +408,52 @@ def _send_my_id(phone: str, case) -> None:
              case["id"] if case else None, "system")
 
 
+def _after_place(case, place: dict) -> None:
+    """Place is known. Low on medicine: nearest pharmacies first. Otherwise: the income question."""
+    if case["category"] == "medication":
+        _offer_pharmacies(case, place)
+    else:
+        _ask_income(case, place)
+
+
+def _offer_pharmacies(case, place: dict) -> None:
+    phone, lang = case["patient_phone"], case["language"]
+    db.update_case(case["id"], stage="ask_med", zip=place["zip"], town=place["town"])
+    db.update_patient(phone, zip=place["zip"], town=place["town"])
+    phs = services.nearest_pharmacies(place)
+    sms.send(phone, services.pharmacy_lines(phs, _t(lang, "pharm_header"), place["town"]), case["id"], "system")
+    sms.send(phone, _t(lang, "med_tip"), case["id"], "system")
+    _notify_chws(case, f"[#{case['id']}] low on medication near {place['town']}: {case['summary']}. "
+                       f"Sent pharmacies: " + ", ".join(f"{ph['name']} {ph['town']}" for ph in phs))
+
+
+def _on_med(case, word: str, body: str) -> None:
+    place = _place_of(case)
+    if word in YES:  # book a doctor visit for a new prescription
+        _ask_income(case, place)
+    elif word in NO:
+        db.update_case(case["id"], stage="done")
+        sms.send(case["patient_phone"], _t(case["language"], "med_chw_ok"), case["id"], "system")
+        _notify_chws(case, f"[#{case['id']}] please call {_tail(case['patient_phone'])} about their medication.")
+    else:
+        _notify_chws(case, f"[#{case['id']}] {_tail(case['patient_phone'])}: {body}")
+
+
+def _send_pharmacies(phone: str, case, body: str) -> None:
+    lang = case["language"] if case else "en"
+    case_id = case["id"] if case else None
+    db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
+    patient = db.get_patient(phone)
+    place = (services.find_place(body.split(" ", 1)[1]) if " " in body.strip() else None) \
+        or (services.find_place(case["zip"]) if case and case["zip"] else None) \
+        or (services.find_place(patient["zip"]) if patient and patient["zip"] else None)
+    if not place:
+        sms.send(phone, _t(lang, "pharm_need_place"), case_id, "system")
+        return
+    sms.send(phone, services.pharmacy_lines(services.nearest_pharmacies(place), _t(lang, "pharm_header"),
+                                            place["town"]), case_id, "system")
+
+
 def _ask_income(case, place: dict) -> None:
     db.update_case(case["id"], stage="ask_income", zip=place["zip"], town=place["town"])
     db.update_patient(case["patient_phone"], zip=place["zip"], town=place["town"])
@@ -351,6 +465,9 @@ GREETING = re.compile(r"^(hi+|hey+|hello+|hiya|yo|hola|good (morning|afternoon|e
 
 def _on_where(case, body: str, tri: dict | None = None) -> None:
     place = _find_place(body, tri)
+    patient = db.get_patient(case["patient_phone"])
+    if not place and patient and patient["zip"] and not GREETING.match(body.strip()) and _is_free_text(body.lower()):
+        place = services.find_place(patient["zip"])  # e.g. "i need my meds" from someone we know
     if not place:
         # A greeting isn't a failed place: ask the friendly first question again.
         key = "start" if GREETING.match(body.strip()) else "where_again"
@@ -360,7 +477,7 @@ def _on_where(case, body: str, tri: dict | None = None) -> None:
         tri = tri or triage(body)
         db.update_case(case["id"], category=tri["category"], summary=tri["summary"],
                        urgency=max(case["urgency"], tri["urgency"], key=["low", "medium", "high", "emergency"].index))
-    _ask_income(case, place)
+    _after_place(db.get_case(case["id"]), place)
 
 
 def _place_of(case) -> dict | None:

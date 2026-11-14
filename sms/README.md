@@ -16,6 +16,19 @@ nearby visits with distance and next time, booking in a mock clinic calendar, `C
 `RESCHEDULE`, and a reminder 24 hours before. Low income is offered the mobile health unit and free
 or sliding-scale clinics first. Clinics and towns live in `app/data/`.
 
+**Low on medicine.** When the need is medication ("i am low in pilles", typos included), CareLine
+texts the 3 nearest **real** pharmacies with phone numbers (`app/data/pharmacies.json`, 135
+community pharmacies within 50 miles of Athens from the CMS NPI Registry; rebuild with
+`tools/fetch_pharmacies.py`; Rite Aid left out, as it closed in 2025), suggests asking the pharmacist
+for an emergency refill, and offers 1 = a doctor visit for a new prescription, 2 = a health worker
+call. The health worker is told. `PHARMACY` or `PHARMACY 45764` lists pharmacies any time. The
+registry has no hours, so people are told to call first.
+
+**Returning patients.** Someone with an account is greeted with their next visit, their saved town
+is used instead of asking again, and "when is my appointment" / `MY VISIT` replies with date, time,
+place and phone. In the simulator, **Existing patient** loads such a patient (Sam Miller,
+Nelsonville, one booked visit).
+
 **Real vs sample data.** The mobile clinic route in `app/data/mobile_route.json` is real: the
 Heritage Community Clinic stops (Ohio University), copied from
 https://www.ohio.edu/medicine/community-health/community-clinic/primary-care on 2026-11-14. CareLine
@@ -69,7 +82,7 @@ uv run uvicorn app.main:app --reload --port 8790
 | `#12 close`     | Closes case 12                         |
 | `LIST`          | Lists open cases                       |
 
-Patients can text `MOBILE`, `MY ID`, `CANCEL VISIT`, `RESCHEDULE`, `HELP`, `STOP` and `START`.
+Patients can text `MY VISIT`, `PHARMACY`, `MOBILE`, `MY ID`, `CANCEL VISIT`, `RESCHEDULE`, `HELP`, `STOP` and `START`.
 
 ## Connect real phones
 

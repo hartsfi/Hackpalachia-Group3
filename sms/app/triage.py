@@ -42,7 +42,9 @@ CRISIS_WORDS = re.compile(
     r"(don[’']?t|do not|no) see (the|any) point|no reason to live|better off without me", re.I)
 
 KEYWORDS = {
-    "medication": r"\bmeds?\b|medicine|medication|prescription|refill|pharmacy|insulin|inhaler",
+    "medication": r"\bmeds?\b|medicine|medication|medecine|prescription|perscription|refill|pharmac|farmac|"
+                  r"insulin|inhaler|\bpil+e?s?\b|tablets?|"
+                  r"(low|running out|ran out|out) (on|of|in) (my|his|her|the)?\s*(pil+e?s|meds|medicine)",
     "transportation": r"\bride\b|transport|\bbus\b|\bcar\b|\bdrive\b|gas money|get to (my|the)",
     "sick_visit": r"fever|cough|\bsick\b|pain|hurts?|rash|flu|cold|sore|vomit|infection|ache",
     "checkup": r"check ?up|physical|annual|routine|screening|blood pressure|vaccin|shot",
@@ -71,7 +73,8 @@ SCHEMA = {
 PROMPT = """You read text messages sent to a rural health text line in Southeast Ohio.
 Return JSON with:
 - category: the main need, one of {cats}
-  (sick_visit = feeling ill or hurt; checkup = routine care; medication = medicine or refills)
+  (sick_visit = feeling ill or hurt; checkup = routine care; medication = medicine, pills or refills,
+  including misspellings like "pilles", "meds", "perscription")
 - urgency: one of {urgs}. emergency = possible danger to life right now (chest pain, trouble
   breathing, stroke signs, heavy bleeding, overdose, suicidal thoughts). high = needs care today.
 - place: the town or 5-digit ZIP code the person mentions, exactly as a place name, or null
@@ -142,6 +145,9 @@ def triage(text: str) -> dict:
     result = result or rules
     if result["category"] == "other" and rules["category"] != "other":
         result["category"] = rules["category"]
+    # Clear medicine words win: someone low on pills must get pharmacies, whatever the model guessed.
+    if rules["category"] == "medication":
+        result["category"] = "medication"
     # Emergency keywords always win; the model can raise urgency but nothing here lowers it.
     if EMERGENCY_WORDS.search(text):
         result["urgency"] = "emergency"

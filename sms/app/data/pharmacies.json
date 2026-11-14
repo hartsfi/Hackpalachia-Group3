@@ -1,0 +1,1358 @@
+{
+ "_note": "Real pharmacies from the NPI Registry (CMS). Locations are ZIP-code centres, so distances are approximate. No opening hours in the registry: tell people to call first. Rebuild with tools/fetch_pharmacies.py.",
+ "source": "https://npiregistry.cms.hhs.gov/api/",
+ "retrieved": "2026-11-14",
+ "radius_miles": 50,
+ "pharmacies": [
+  {
+   "npi": "1205610466",
+   "name": "Alliance Family Health Center Pharmacy",
+   "address": "1401 S Arch Ave Ste A",
+   "town": "Alliance",
+   "zip": "44601",
+   "phone": "740-452-7685",
+   "lat": 39.94,
+   "lon": -82.013
+  },
+  {
+   "npi": "1790888493",
+   "name": "CVS Pharmacy",
+   "address": "555 E State St",
+   "town": "Athens",
+   "zip": "45701",
+   "phone": "740-593-8501",
+   "lat": 39.329,
+   "lon": -82.101
+  },
+  {
+   "npi": "1215030739",
+   "name": "CVS Pharmacy",
+   "address": "32 S Court St",
+   "town": "Athens",
+   "zip": "45701",
+   "phone": "740-592-6024",
+   "lat": 39.329,
+   "lon": -82.101
+  },
+  {
+   "npi": "1255346185",
+   "name": "Fruth Pharmacy",
+   "address": "8972 United Ln",
+   "town": "Athens",
+   "zip": "45701",
+   "phone": "740-594-3092",
+   "lat": 39.329,
+   "lon": -82.101
+  },
+  {
+   "npi": "1982850772",
+   "name": "Holzer Family Pharmacy Athens",
+   "address": "2131 E State St",
+   "town": "Athens",
+   "zip": "45701",
+   "phone": "740-589-3181",
+   "lat": 39.329,
+   "lon": -82.101
+  },
+  {
+   "npi": "1811086507",
+   "name": "Kroger Pharmacy",
+   "address": "919 E State St",
+   "town": "Athens",
+   "zip": "45701",
+   "phone": "740-566-4180",
+   "lat": 39.329,
+   "lon": -82.101
+  },
+  {
+   "npi": "1578169033",
+   "name": "Rising Suns Pharmacy",
+   "address": "86 Columbus Cir Ste 104G",
+   "town": "Athens",
+   "zip": "45701",
+   "phone": "614-849-2971",
+   "lat": 39.329,
+   "lon": -82.101
+  },
+  {
+   "npi": "1366947111",
+   "name": "Shrivers Pharmacy And Wellness",
+   "address": "310 W Union St Ste 101",
+   "town": "Athens",
+   "zip": "45701",
+   "phone": "740-452-7685",
+   "lat": 39.329,
+   "lon": -82.101
+  },
+  {
+   "npi": "1841387040",
+   "name": "The Drugstore",
+   "address": "934 E State St",
+   "town": "Athens",
+   "zip": "45701",
+   "phone": "740-566-4690",
+   "lat": 39.329,
+   "lon": -82.101
+  },
+  {
+   "npi": "1851318059",
+   "name": "Walmart Pharmacy",
+   "address": "929 E State St",
+   "town": "Athens",
+   "zip": "45701",
+   "phone": "740-594-3628",
+   "lat": 39.329,
+   "lon": -82.101
+  },
+  {
+   "npi": "1609889575",
+   "name": "Medicine Shoppe",
+   "address": "114 N Main St",
+   "town": "Baltimore",
+   "zip": "43105",
+   "phone": "740-862-4240",
+   "lat": 39.864,
+   "lon": -82.624
+  },
+  {
+   "npi": "1720145097",
+   "name": "Beaver Pharmacy",
+   "address": "7046 State Rd 335",
+   "town": "Beaver",
+   "zip": "45613",
+   "phone": "740-226-5000",
+   "lat": 39.033,
+   "lon": -82.851
+  },
+  {
+   "npi": "1184728909",
+   "name": "CVS Pharmacy",
+   "address": "1013 Washington Blvd",
+   "town": "Belpre",
+   "zip": "45714",
+   "phone": "740-401-1035",
+   "lat": 39.274,
+   "lon": -81.573
+  },
+  {
+   "npi": "1073528907",
+   "name": "Fruth Pharmacy",
+   "address": "1401 Washington Blvd",
+   "town": "Belpre",
+   "zip": "45714",
+   "phone": "740-423-9561",
+   "lat": 39.274,
+   "lon": -81.573
+  },
+  {
+   "npi": "1962436667",
+   "name": "Kroger Pharmacy",
+   "address": "1008 Washington Blvd",
+   "town": "Belpre",
+   "zip": "45714",
+   "phone": "740-423-7271",
+   "lat": 39.274,
+   "lon": -81.573
+  },
+  {
+   "npi": "1467157651",
+   "name": "Shrivers Pharmacy And Wellness Iv",
+   "address": "812 Farson St",
+   "town": "Belpre",
+   "zip": "45714",
+   "phone": "740-452-7685",
+   "lat": 39.274,
+   "lon": -81.573
+  },
+  {
+   "npi": "1336181296",
+   "name": "Gillespies Drugs",
+   "address": "44523 Marietta Rd",
+   "town": "Caldwell",
+   "zip": "43724",
+   "phone": "740-732-2356",
+   "lat": 39.747,
+   "lon": -81.515
+  },
+  {
+   "npi": "1497464218",
+   "name": "Mvhc Pharmacy",
+   "address": "1330 Clark St",
+   "town": "Cambridge",
+   "zip": "43725",
+   "phone": "740-891-9000",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1417400813",
+   "name": "Northside Cambridge Pharmacy",
+   "address": "1330 Clark St Ste 1100",
+   "town": "Cambridge",
+   "zip": "43725",
+   "phone": "740-255-5844",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1033010764",
+   "name": "Cape Oasis",
+   "address": "4176 Ashbury Dr",
+   "town": "Carroll",
+   "zip": "43112",
+   "phone": "501-476-4407",
+   "lat": 39.796,
+   "lon": -82.708
+  },
+  {
+   "npi": "1710954631",
+   "name": "Heritage Pharmacy",
+   "address": "3675 Dolson Ct",
+   "town": "Carroll",
+   "zip": "43112",
+   "phone": "740-653-0942",
+   "lat": 39.796,
+   "lon": -82.708
+  },
+  {
+   "npi": "1336645381",
+   "name": "Shriverspharmacy",
+   "address": "501 W Main St",
+   "town": "Carrollton",
+   "zip": "44615",
+   "phone": "740-452-7685",
+   "lat": 39.94,
+   "lon": -82.013
+  },
+  {
+   "npi": "1013547835",
+   "name": "Adena Community Pharmacy - Woodlands",
+   "address": "311 Caldwell St",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "740-779-5600",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1437488558",
+   "name": "Adena Pharmacy",
+   "address": "272 Hospital Rd",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "740-779-8761",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1326320557",
+   "name": "Adena Pharmacy",
+   "address": "4439 State Route 159",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "740-779-8763",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1962488155",
+   "name": "Allen's Medical Pharmacy",
+   "address": "215 Old Eastern Ave",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "740-772-5180",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1801999552",
+   "name": "CVS Pharmacy",
+   "address": "11 Centennial Blvd",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "740-702-1100",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1942303599",
+   "name": "CVS Pharmacy",
+   "address": "885 N Bridge St",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "614-774-2310",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1164197737",
+   "name": "Charitable Pharmacy Of Hope Clinic Of Ro",
+   "address": "610 Central Ctr",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "740-774-4606",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1962570945",
+   "name": "Henderson Pharmacy Services",
+   "address": "186 W Main St",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "740-702-1181",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1679763346",
+   "name": "Knisley Pharmacy",
+   "address": "2535 Western Ave",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "740-779-6226",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1811912520",
+   "name": "Kroger Pharmacy",
+   "address": "1165 Western Ave",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "740-772-4062",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1275567976",
+   "name": "Kroger Pharmacy",
+   "address": "887 N Bridge St",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "740-775-8467",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1679584197",
+   "name": "Sams Pharmacy",
+   "address": "1270 N Bridge St",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "740-779-6716",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1437164480",
+   "name": "Walgreens",
+   "address": "850 N Bridge St",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "740-779-2905",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1578792974",
+   "name": "Walgreens",
+   "address": "1070 Western Ave",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "740-779-1637",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1013934207",
+   "name": "Walmart Pharmacy",
+   "address": "85 River Trce",
+   "town": "Chillicothe",
+   "zip": "45601",
+   "phone": "740-774-2343",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1730282492",
+   "name": "CVS Pharmacy",
+   "address": "205 E Main St",
+   "town": "Circleville",
+   "zip": "43113",
+   "phone": "740-474-7596",
+   "lat": 39.599,
+   "lon": -82.93
+  },
+  {
+   "npi": "1114009701",
+   "name": "Carnival Foods Pharmacy",
+   "address": "120 Morris Rd",
+   "town": "Circleville",
+   "zip": "43113",
+   "phone": "740-474-2188",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1780675918",
+   "name": "Circleville Apothecary",
+   "address": "1200 N Court St",
+   "town": "Circleville",
+   "zip": "43113",
+   "phone": "740-420-3784",
+   "lat": 39.599,
+   "lon": -82.93
+  },
+  {
+   "npi": "1558262287",
+   "name": "Health Care Logistics",
+   "address": "450 Town St",
+   "town": "Circleville",
+   "zip": "43113",
+   "phone": "501-476-4407",
+   "lat": 39.599,
+   "lon": -82.93
+  },
+  {
+   "npi": "1760416465",
+   "name": "Kroger Pharmacy",
+   "address": "175 Lancaster Pike",
+   "town": "Circleville",
+   "zip": "43113",
+   "phone": "740-477-5763",
+   "lat": 39.599,
+   "lon": -82.93
+  },
+  {
+   "npi": "1588758999",
+   "name": "Schieber Family Pharmacy, Medicine Shopp",
+   "address": "212 Lancaster Pike",
+   "town": "Circleville",
+   "zip": "43113",
+   "phone": "740-474-1971",
+   "lat": 39.599,
+   "lon": -82.93
+  },
+  {
+   "npi": "1629095807",
+   "name": "Walmart Pharmacy",
+   "address": "1470 S Court St",
+   "town": "Circleville",
+   "zip": "43113",
+   "phone": "740-474-9898",
+   "lat": 39.599,
+   "lon": -82.93
+  },
+  {
+   "npi": "1710839436",
+   "name": "Genesis Outpatient Pharmacy 1c",
+   "address": "646 Chestnut St Ste B",
+   "town": "Coshocton",
+   "zip": "43812",
+   "phone": "740-295-8201",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1730098245",
+   "name": "Mvhc Pharmacy",
+   "address": "370 Downtowner Plz",
+   "town": "Coshocton",
+   "zip": "43812",
+   "phone": "740-891-9000",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1518069210",
+   "name": "Shrivers Pharmacy",
+   "address": "120 S Buckeye St",
+   "town": "Crooksville",
+   "zip": "43731",
+   "phone": "740-982-3081",
+   "lat": 39.762,
+   "lon": -82.084
+  },
+  {
+   "npi": "1790419067",
+   "name": "Shrivers Pharmacy And Wellness",
+   "address": "101 W Dave Longaberger Ave Ste C",
+   "town": "Dresden",
+   "zip": "43821",
+   "phone": "740-452-7685",
+   "lat": 39.94,
+   "lon": -82.013
+  },
+  {
+   "npi": "1831904374",
+   "name": "Adena Warrior Pharmacy",
+   "address": "169 W. High Street",
+   "town": "Frankfort",
+   "zip": "45628",
+   "phone": "740-998-0000",
+   "lat": 39.338,
+   "lon": -82.99
+  },
+  {
+   "npi": "1720181555",
+   "name": "CVS Pharmacy",
+   "address": "3066 State Route 160",
+   "town": "Gallipolis",
+   "zip": "45631",
+   "phone": "740-446-7459",
+   "lat": 38.81,
+   "lon": -82.202
+  },
+  {
+   "npi": "1659388676",
+   "name": "Fruth Pharmacy",
+   "address": "204 2Nd Ave",
+   "town": "Gallipolis",
+   "zip": "45631",
+   "phone": "740-441-0781",
+   "lat": 38.81,
+   "lon": -82.202
+  },
+  {
+   "npi": "1528073459",
+   "name": "Fruth Pharmacy",
+   "address": "2991 State Route 160",
+   "town": "Gallipolis",
+   "zip": "45631",
+   "phone": "740-446-6620",
+   "lat": 38.81,
+   "lon": -82.202
+  },
+  {
+   "npi": "1922112747",
+   "name": "Holzer Family Pharmacy - Gallipolis",
+   "address": "90 Jackson Pike",
+   "town": "Gallipolis",
+   "zip": "45631",
+   "phone": "740-446-5236",
+   "lat": 38.81,
+   "lon": -82.202
+  },
+  {
+   "npi": "1164940078",
+   "name": "Spring Valley Family Pharmacy",
+   "address": "448 Jackson Pike Road",
+   "town": "Gallipolis",
+   "zip": "45631",
+   "phone": "740-446-2844",
+   "lat": 38.81,
+   "lon": -82.202
+  },
+  {
+   "npi": "1922025121",
+   "name": "Walmart Pharmacy",
+   "address": "2145 Eastern Ave",
+   "town": "Gallipolis",
+   "zip": "45631",
+   "phone": "740-441-0175",
+   "lat": 38.81,
+   "lon": -82.202
+  },
+  {
+   "npi": "1407595622",
+   "name": "Arensberg Pharmacy",
+   "address": "96 Integrity Drive",
+   "town": "Hebron",
+   "zip": "43025",
+   "phone": "740-928-3455",
+   "lat": 39.953,
+   "lon": -82.492
+  },
+  {
+   "npi": "1174753438",
+   "name": "Arensberg Pharmacy",
+   "address": "96 Integrity Dr Ste D",
+   "town": "Hebron",
+   "zip": "43025",
+   "phone": "740-928-3455",
+   "lat": 39.953,
+   "lon": -82.492
+  },
+  {
+   "npi": "1679507396",
+   "name": "Kroger Pharmacy",
+   "address": "600 E Main St",
+   "town": "Hebron",
+   "zip": "43025",
+   "phone": "740-928-2152",
+   "lat": 39.953,
+   "lon": -82.492
+  },
+  {
+   "npi": "1326915273",
+   "name": "Fmc Ironton Pharmacy",
+   "address": "1408 Campbell Dr",
+   "town": "Ironton",
+   "zip": "45638",
+   "phone": "740-452-7685",
+   "lat": 39.94,
+   "lon": -82.013
+  },
+  {
+   "npi": "1467555185",
+   "name": "CVS Pharmacy",
+   "address": "353 E Main St",
+   "town": "Jackson",
+   "zip": "45640",
+   "phone": "740-286-6401",
+   "lat": 39.052,
+   "lon": -82.636
+  },
+  {
+   "npi": "1629109780",
+   "name": "Holzer Family Pharmacy Jackson",
+   "address": "280 Pattonsville Rd",
+   "town": "Jackson",
+   "zip": "45640",
+   "phone": "740-395-8870",
+   "lat": 39.052,
+   "lon": -82.636
+  },
+  {
+   "npi": "1689608390",
+   "name": "Kroger Pharmacy",
+   "address": "530 E Main St",
+   "town": "Jackson",
+   "zip": "45640",
+   "phone": "740-286-6400",
+   "lat": 39.052,
+   "lon": -82.636
+  },
+  {
+   "npi": "1598758211",
+   "name": "Lewis Drug",
+   "address": "253 E Main St",
+   "town": "Jackson",
+   "zip": "45640",
+   "phone": "740-286-3424",
+   "lat": 39.052,
+   "lon": -82.636
+  },
+  {
+   "npi": "1467437640",
+   "name": "The Medecine Shoppe",
+   "address": "731 E Main St",
+   "town": "Jackson",
+   "zip": "45640",
+   "phone": "740-286-1327",
+   "lat": 39.052,
+   "lon": -82.636
+  },
+  {
+   "npi": "1740434794",
+   "name": "Walgreens",
+   "address": "521 E Main St",
+   "town": "Jackson",
+   "zip": "45640",
+   "phone": "740-286-4640",
+   "lat": 39.052,
+   "lon": -82.636
+  },
+  {
+   "npi": "1164449344",
+   "name": "Walmart Pharmacy",
+   "address": "100 Walmart Dr",
+   "town": "Jackson",
+   "zip": "45640",
+   "phone": "740-286-6860",
+   "lat": 39.052,
+   "lon": -82.636
+  },
+  {
+   "npi": "1023030822",
+   "name": "CVS Pharmacy",
+   "address": "1300 River Valley Blvd",
+   "town": "Lancaster",
+   "zip": "43130",
+   "phone": "740-681-1875",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1457454100",
+   "name": "CVS Pharmacy",
+   "address": "111 S Memorial Dr",
+   "town": "Lancaster",
+   "zip": "43130",
+   "phone": "740-653-2631",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1588663793",
+   "name": "David Pharmacy",
+   "address": "1518 E Main St",
+   "town": "Lancaster",
+   "zip": "43130",
+   "phone": "740-304-0746",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1881403426",
+   "name": "Fairfield Community Health Center Pharma",
+   "address": "220 E Walnut St",
+   "town": "Lancaster",
+   "zip": "43130",
+   "phone": "740-277-6043",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1811140817",
+   "name": "Giant Eagle Pharmacy",
+   "address": "1394 Ety Shops Way",
+   "town": "Lancaster",
+   "zip": "43130",
+   "phone": "740-654-5219",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1316962020",
+   "name": "Kroger Pharmacy",
+   "address": "1141 E Main St",
+   "town": "Lancaster",
+   "zip": "43130",
+   "phone": "740-653-2369",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1023042819",
+   "name": "Kroger Pharmacy",
+   "address": "1621 N Memorial Dr",
+   "town": "Lancaster",
+   "zip": "43130",
+   "phone": "740-654-2044",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1215952932",
+   "name": "Kroger Pharmacy",
+   "address": "401 N Ewing St",
+   "town": "Lancaster",
+   "zip": "43130",
+   "phone": "740-654-1019",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1871651828",
+   "name": "Medicine Shoppe",
+   "address": "900 E Main St",
+   "town": "Lancaster",
+   "zip": "43130",
+   "phone": "740-653-7779",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1659468809",
+   "name": "Meijer Pharmacy",
+   "address": "2900 Columbus Lancaster Rd Nw",
+   "town": "Lancaster",
+   "zip": "43130",
+   "phone": "740-681-2410",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1053493858",
+   "name": "Risch Drug",
+   "address": "533 N Columbus St",
+   "town": "Lancaster",
+   "zip": "43130",
+   "phone": "740-653-1324",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1982619938",
+   "name": "Walgreens",
+   "address": "911 N Memorial Dr",
+   "town": "Lancaster",
+   "zip": "43130",
+   "phone": "740-681-9579",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1780691709",
+   "name": "Walgreens",
+   "address": "859 E Main St",
+   "town": "Lancaster",
+   "zip": "43130",
+   "phone": "740-654-2592",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1285810671",
+   "name": "Walmart Pharmacy",
+   "address": "2687 N Memorial Dr",
+   "town": "Lancaster",
+   "zip": "43130",
+   "phone": "740-687-0449",
+   "lat": 39.719,
+   "lon": -82.603
+  },
+  {
+   "npi": "1427031202",
+   "name": "Youngs Pharmacy",
+   "address": "15986 State Route 56 E",
+   "town": "Laurelville",
+   "zip": "43135",
+   "phone": "740-332-1833",
+   "lat": 39.476,
+   "lon": -82.721
+  },
+  {
+   "npi": "1639272370",
+   "name": "CVS Pharmacy",
+   "address": "1390 W Hunter St",
+   "town": "Logan",
+   "zip": "43138",
+   "phone": "740-380-3485",
+   "lat": 39.54,
+   "lon": -82.407
+  },
+  {
+   "npi": "1568970333",
+   "name": "Hopewell Health Centers",
+   "address": "30381 Chieftain Dr",
+   "town": "Logan",
+   "zip": "43138",
+   "phone": "740-385-2555",
+   "lat": 39.54,
+   "lon": -82.407
+  },
+  {
+   "npi": "1902830607",
+   "name": "Kroger Pharmacy",
+   "address": "31550 Chieftain Dr",
+   "town": "Logan",
+   "zip": "43138",
+   "phone": "740-380-2041",
+   "lat": 39.54,
+   "lon": -82.407
+  },
+  {
+   "npi": "1841735800",
+   "name": "Shrivers Pharmacy",
+   "address": "21 Hocking Mall",
+   "town": "Logan",
+   "zip": "43138",
+   "phone": "740-452-7685",
+   "lat": 39.54,
+   "lon": -82.407
+  },
+  {
+   "npi": "1376560573",
+   "name": "Walmart Pharmacy",
+   "address": "12910 State Route 664 S",
+   "town": "Logan",
+   "zip": "43138",
+   "phone": "740-380-0469",
+   "lat": 39.54,
+   "lon": -82.407
+  },
+  {
+   "npi": "1235724675",
+   "name": "Shrivers Pharmacy",
+   "address": "202 W Main St",
+   "town": "Loudonville",
+   "zip": "44842",
+   "phone": "419-994-3221",
+   "lat": 39.94,
+   "lon": -82.013
+  },
+  {
+   "npi": "1326034141",
+   "name": "Lumberport Pharmacy",
+   "address": "308 Main Street",
+   "town": "Lumberport",
+   "zip": "26386",
+   "phone": "740-452-7655",
+   "lat": 39.94,
+   "lon": -82.013
+  },
+  {
+   "npi": "1467555193",
+   "name": "CVS Pharmacy",
+   "address": "131 3Rd St",
+   "town": "Marietta",
+   "zip": "45750",
+   "phone": "740-373-2961",
+   "lat": 39.415,
+   "lon": -81.455
+  },
+  {
+   "npi": "1568477487",
+   "name": "Giant Eagle Pharmacy",
+   "address": "128 Gross St",
+   "town": "Marietta",
+   "zip": "45750",
+   "phone": "740-374-3127",
+   "lat": 39.415,
+   "lon": -81.455
+  },
+  {
+   "npi": "1639103435",
+   "name": "Kroger Pharmacy",
+   "address": "40 Acme St",
+   "town": "Marietta",
+   "zip": "45750",
+   "phone": "740-374-2523",
+   "lat": 39.415,
+   "lon": -81.455
+  },
+  {
+   "npi": "1487102042",
+   "name": "Kroger Pharmacy",
+   "address": "401 Matthew St",
+   "town": "Marietta",
+   "zip": "45750",
+   "phone": "740-434-0140",
+   "lat": 39.415,
+   "lon": -81.455
+  },
+  {
+   "npi": "1164304978",
+   "name": "Mhs Pharmacy",
+   "address": "330 E 8Th St",
+   "town": "Marietta",
+   "zip": "45750",
+   "phone": "740-374-1400",
+   "lat": 39.415,
+   "lon": -81.455
+  },
+  {
+   "npi": "1699632349",
+   "name": "Mhs Pharmacy",
+   "address": "226 Pike Street",
+   "town": "Marietta",
+   "zip": "45750",
+   "phone": "740-760-5850",
+   "lat": 39.415,
+   "lon": -81.455
+  },
+  {
+   "npi": "1881876233",
+   "name": "Walgreens",
+   "address": "300 Greene St",
+   "town": "Marietta",
+   "zip": "45750",
+   "phone": "740-376-1015",
+   "lat": 39.415,
+   "lon": -81.455
+  },
+  {
+   "npi": "1639196827",
+   "name": "Walmart Pharmacy",
+   "address": "804 Pike St",
+   "town": "Marietta",
+   "zip": "45750",
+   "phone": "740-376-9035",
+   "lat": 39.415,
+   "lon": -81.455
+  },
+  {
+   "npi": "1225254121",
+   "name": "Shrivers Pharmacy",
+   "address": "530 N Market St",
+   "town": "Mc Arthur",
+   "zip": "45651",
+   "phone": "740-596-2566",
+   "lat": 39.247,
+   "lon": -82.478
+  },
+  {
+   "npi": "1427160977",
+   "name": "Shrivers Pharmacy",
+   "address": "105 N Kennebec Ave",
+   "town": "Mcconnelsville",
+   "zip": "43756",
+   "phone": "740-962-2552",
+   "lat": 39.649,
+   "lon": -81.853
+  },
+  {
+   "npi": "1306956644",
+   "name": "Millersport Pharmacy",
+   "address": "12075 Lancaster St",
+   "town": "Millersport",
+   "zip": "43046",
+   "phone": "740-467-2232",
+   "lat": 39.899,
+   "lon": -82.528
+  },
+  {
+   "npi": "1679507370",
+   "name": "Kroger Pharmacy",
+   "address": "965 Poplar St",
+   "town": "Nelsonville",
+   "zip": "45764",
+   "phone": "740-753-1984",
+   "lat": 39.459,
+   "lon": -82.232
+  },
+  {
+   "npi": "1790876985",
+   "name": "Shrivers Pharmacy",
+   "address": "40 Watkins St",
+   "town": "Nelsonville",
+   "zip": "45764",
+   "phone": "740-753-2484",
+   "lat": 39.459,
+   "lon": -82.232
+  },
+  {
+   "npi": "1275961864",
+   "name": "Northside New Concord Pharmacy",
+   "address": "10 E Main St",
+   "town": "New Concord",
+   "zip": "43762",
+   "phone": "740-826-4000",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1649373390",
+   "name": "CVS Pharmacy",
+   "address": "251 E Broadway St",
+   "town": "New Lexington",
+   "zip": "43764",
+   "phone": "614-342-4137",
+   "lat": 39.714,
+   "lon": -82.208
+  },
+  {
+   "npi": "1225062938",
+   "name": "Kroger Pharmacy",
+   "address": "610 Carroll St",
+   "town": "New Lexington",
+   "zip": "43764",
+   "phone": "740-342-5649",
+   "lat": 39.714,
+   "lon": -82.208
+  },
+  {
+   "npi": "1619070430",
+   "name": "CVS Pharmacy",
+   "address": "407 N Front St",
+   "town": "Oak Hill",
+   "zip": "45656",
+   "phone": "614-682-3525",
+   "lat": 38.892,
+   "lon": -82.588
+  },
+  {
+   "npi": "1346255270",
+   "name": "Fruth Pharmacy",
+   "address": "706 W Main St",
+   "town": "Pomeroy",
+   "zip": "45769",
+   "phone": "740-992-6491",
+   "lat": 39.027,
+   "lon": -82.034
+  },
+  {
+   "npi": "1942387287",
+   "name": "Fruth Pharmacy At Foodfair",
+   "address": "700 E Main St",
+   "town": "Pomeroy",
+   "zip": "45769",
+   "phone": "740-992-1536",
+   "lat": 39.027,
+   "lon": -82.034
+  },
+  {
+   "npi": "1861449043",
+   "name": "Genesis Roseville Pharmacy",
+   "address": "157 S Main St",
+   "town": "Roseville",
+   "zip": "43777",
+   "phone": "740-697-0348",
+   "lat": 39.819,
+   "lon": -82.079
+  },
+  {
+   "npi": "1144267972",
+   "name": "Genesis Somerset Pharmacy",
+   "address": "110 W Main St",
+   "town": "Somerset",
+   "zip": "43783",
+   "phone": "740-743-2185",
+   "lat": 39.794,
+   "lon": -82.299
+  },
+  {
+   "npi": "1316051394",
+   "name": "Smith's Pharmacy",
+   "address": "11016 Main St",
+   "town": "South Webster",
+   "zip": "45682",
+   "phone": "740-778-3784",
+   "lat": 38.82,
+   "lon": -82.72
+  },
+  {
+   "npi": "1225037617",
+   "name": "Riesbeck's Pharmacy",
+   "address": "2200 June Pkwy",
+   "town": "South Zanesville",
+   "zip": "43701",
+   "phone": "740-450-7859",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1215777230",
+   "name": "Hopewell Health Centers",
+   "address": "25 S Clinton St",
+   "town": "The Plains",
+   "zip": "45780",
+   "phone": "740-677-8010",
+   "lat": 39.369,
+   "lon": -82.133
+  },
+  {
+   "npi": "1225136112",
+   "name": "Thornville Pharmacy",
+   "address": "2 N Main St",
+   "town": "Thornville",
+   "zip": "43076",
+   "phone": "740-246-6511",
+   "lat": 39.897,
+   "lon": -82.407
+  },
+  {
+   "npi": "1730268228",
+   "name": "Kroger Pharmacy",
+   "address": "19471 Lake Dr",
+   "town": "Trimble",
+   "zip": "45782",
+   "phone": "740-767-3851",
+   "lat": 39.484,
+   "lon": -82.079
+  },
+  {
+   "npi": "1922926443",
+   "name": "Shrivers Pharmacy And Wellness V",
+   "address": "800 Grand Central Mall Ste 5",
+   "town": "Vienna",
+   "zip": "26105",
+   "phone": "304-295-7356",
+   "lat": 39.94,
+   "lon": -82.013
+  },
+  {
+   "npi": "1952008518",
+   "name": "White Oak Pharmacy",
+   "address": "8465 State Route 339",
+   "town": "Vincent",
+   "zip": "45784",
+   "phone": "740-678-2384",
+   "lat": 39.337,
+   "lon": -81.674
+  },
+  {
+   "npi": "1205565694",
+   "name": "Adena Wellston Pharmacy",
+   "address": "2 E A St",
+   "town": "Wellston",
+   "zip": "45692",
+   "phone": "740-384-7715",
+   "lat": 39.119,
+   "lon": -82.549
+  },
+  {
+   "npi": "1437164365",
+   "name": "Fruth Pharmacy",
+   "address": "120 W 2Nd St",
+   "town": "Wellston",
+   "zip": "45692",
+   "phone": "740-384-2174",
+   "lat": 39.119,
+   "lon": -82.549
+  },
+  {
+   "npi": "1467341578",
+   "name": "Williamson Health & Wellness Center",
+   "address": "182 E 2Nd Ave",
+   "town": "Williamson",
+   "zip": "25661",
+   "phone": "304-236-5902",
+   "lat": 39.94,
+   "lon": -82.013
+  },
+  {
+   "npi": "1912000738",
+   "name": "CVS Pharmacy",
+   "address": "1208 Maple Ave",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-453-3442",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1790888212",
+   "name": "CVS Pharmacy",
+   "address": "103 N Maysville Ave",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-452-7589",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1902843287",
+   "name": "Genesis Central Fill Pharmacy",
+   "address": "751 Forest Ave",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-454-6970",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1548203631",
+   "name": "Genesis Maysville Pharmacy",
+   "address": "15 Maysville Ave.",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-453-3700",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1477150951",
+   "name": "Genesis Outpatient Pharmacy",
+   "address": "945 Bethesda Dr Ste 20",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-454-4044",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1184435414",
+   "name": "Genesis Outpatient Pharmacy 2z",
+   "address": "860 Bethesda Dr Ste 1A",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-586-6626",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1285688119",
+   "name": "Genesis Taylor Pharmacy",
+   "address": "721 Taylor St",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-453-0508",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1588698286",
+   "name": "Kroger Pharmacy",
+   "address": "3387 Maple Ave",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-453-8837",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1215042254",
+   "name": "Medicine Shoppe",
+   "address": "2116 Maple Ave",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-455-2020",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1871973966",
+   "name": "Northside Mvhc Pharmacy",
+   "address": "716 Adair Ave",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-868-8171",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1659461622",
+   "name": "Sams Pharmacy",
+   "address": "3724 Northpointe Dr",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-452-6869",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1730273798",
+   "name": "Shrivers Pharmacy",
+   "address": "406 Brighton Blvd",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-452-3692",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1851024459",
+   "name": "Shrivers Pharmacy And Wellness",
+   "address": "2050 East Pike",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-452-7685",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1609881648",
+   "name": "Walgreens",
+   "address": "1033 Military Rd",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-588-0690",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1881613875",
+   "name": "Walmart Pharmacy",
+   "address": "2850 Maysville Pike",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-452-2117",
+   "lat": 39.927,
+   "lon": -82.004
+  },
+  {
+   "npi": "1275550469",
+   "name": "Walmart Pharmacy",
+   "address": "2850 Maple Ave",
+   "town": "Zanesville",
+   "zip": "43701",
+   "phone": "740-455-9007",
+   "lat": 39.927,
+   "lon": -82.004
+  }
+ ]
+}

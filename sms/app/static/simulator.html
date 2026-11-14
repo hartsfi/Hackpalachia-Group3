@@ -84,6 +84,7 @@
   <b>CareLine simulator</b><span>No real texts are sent.</span><span class="sp"></span>
   <label>Texting from <input id="num" value="" aria-label="Patient phone number"></label>
   <button id="next" title="Switch to a new patient number, which starts a new conversation">New patient</button>
+  <button id="existing" title="A patient who already has an account, a saved town and a booked visit">Existing patient</button>
   <a id="toggle" href="?worker=1">Show health worker phone</a>
   <a href="/dashboard" target="_blank">Staff dashboard ↗</a>
 </div>
@@ -177,6 +178,10 @@ async function newPatient() {
   numInput.value = phone; numInput.onchange();
 }
 document.getElementById("next").onclick = newPatient;
+document.getElementById("existing").onclick = async () => {
+  const { phone } = await (await fetch("/dev/demo-patient", {method: "POST"})).json();
+  numInput.value = phone; numInput.onchange();
+};
 fetch("/dev/config").then(r => r.json()).then(c => {
   workerNumber = c.chws[0];
   const pretty = n => n.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3");

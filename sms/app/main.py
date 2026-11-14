@@ -199,6 +199,21 @@ def dev_new_phone():
     raise HTTPException(503, "no unused test numbers left; delete textbridge.db to start over")
 
 
+@app.post("/dev/demo-patient", dependencies=[Depends(dev_only)])
+def dev_demo_patient():
+    """An existing patient to test returning users: account, saved town, one booked visit."""
+    phone = dev_new_phone()["phone"]
+    db.create_patient(phone, "en")
+    db.update_patient(phone, first_name="Sam", last_name="Miller", zip="45764", town="Nelsonville", income="low")
+    case_id = db.create_case(phone, {"category": "checkup", "urgency": "low", "summary": "Checkup (demo patient)",
+                                     "language": "en"})
+    db.update_case(case_id, zip="45764", town="Nelsonville", income="low", stage="booked", status="closed")
+    svc = next(s for s in services.clinics().values() if not s.get("kind") and not s.get("athena"))
+    slot = services.free_slots(svc, 1)[0]
+    db.book(case_id, phone, svc["id"], slot["ts"])
+    return {"phone": phone, "name": "Sam Miller", "visit": f"{services.when(slot['ts'])} {svc['short']}"}
+
+
 @app.get("/dev/phone/{phone}", dependencies=[Depends(dev_only)])
 def dev_phone(phone: str, since: int = 0):
     return db.phone_messages(phone, since)

@@ -78,6 +78,35 @@ check("picking a mobile stop gives the real phone, no fake booking", "740-593-24
 r, _ = text(M, "1"); show(r); check("reply 1: a health worker will call for them", "health worker will call" in r[-1]["body"])
 wk = [m["body"] for m in get("/dev/phone/" + urllib.parse.quote(W)) if m["to_phone"] == W]
 check("health worker is asked to call and book", any("please call 740-593-2432" in b and "Kim Lee" in b for b in wk))
+print("== Low on medicine: nearest real pharmacies")
+Q = "+17405550172"
+text(Q, "i am low on my blood pressure pills, im in nelsonville"); r, _ = text(Q, "Lee Ray"); show(r)
+ph = next((m["body"] for m in r if m["body"].startswith("Pharmacies near you")), "")
+check("low on pills: nearest pharmacies with phone numbers", ph.count("\n") == 3 and "740-" in ph and "Nelsonville" in ph, ph[:60])
+check("then: emergency refill tip, 1 = doctor visit, 2 = health worker", "emergency refill" in r[-1]["body"])
+wk = [m["body"] for m in get("/dev/phone/" + urllib.parse.quote(W)) if m["to_phone"] == W]
+check("health worker told they are low on medication", any("low on medication near Nelsonville" in b for b in wk))
+r, _ = text(Q, "1"); show(r); check("1 goes on to book a doctor visit", "Reply 1 if low income" in r[-1]["body"])
+Q2 = "+17405550173"
+text(Q2, "ran out of my meds, 45701"); text(Q2, "SKIP"); r, _ = text(Q2, "2"); show(r)
+check("2 hands over to a health worker", "health worker will contact you" in r[-1]["body"])
+r, _ = text("+17405550174", "PHARMACY 45764"); show(r)
+check("PHARMACY <zip> lists the nearest pharmacies", r and r[-1]["body"].startswith("Pharmacies near you"))
+print("== Your exact case: 'i am low in pilles', no town")
+Z = "+17405550175"
+text(Z, "i am low in pilles"); r, _ = text(Z, "mukesh guntumadugu"); show(r)
+check("after sign-up it asks only for the place, to find a pharmacy", "To find a pharmacy near you" in r[-1]["body"])
+r, _ = text(Z, "45764"); show(r)
+check("then the nearest pharmacies", any(m["body"].startswith("Pharmacies near you") for m in r))
+print("== Existing patient (account, saved town, booked visit)")
+demo = post("/dev/demo-patient")
+D = demo["phone"]
+r, _ = text(D, "hi"); show(r)
+check("welcomed back by name with their next visit, no sign-up", len(r) == 1 and r[0]["body"].startswith("Welcome back Sam! Your next visit:"))
+r, _ = text(D, "when is my appointment"); show(r)
+check("'when is my appointment' gives date, time, place and phone", r[-1]["body"].startswith("Your next visit:") and "Call 740-" in r[-1]["body"])
+r, _ = text(D, "i need my meds refilled"); show(r)
+check("uses their saved town, no ZIP question", any(m["body"].startswith("Pharmacies near you") and "Nelsonville" in m["body"] for m in r))
 print("== Reminder")
 case1 = [c for c in get("/api/cases") if c["patient_phone"] == P1][0]
 bk = [x for x in get(f"/api/cases/{case1['id']}")["bookings"] if x["status"] == "booked"][0]
