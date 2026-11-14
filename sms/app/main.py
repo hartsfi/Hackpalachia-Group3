@@ -222,6 +222,20 @@ def dev_text(t: DevText):
     return {"ok": True}
 
 
+# ---------------------------------------------------------------- pure agent experiment
+@app.get("/simulator-agent", include_in_schema=False, dependencies=[Depends(dev_only)])
+def simulator_agent():
+    """Same phone, but every text is answered by the pure agent (app/pure_agent.py)."""
+    return FileResponse(STATIC / "simulator-agent.html")
+
+
+@app.post("/dev/agent-text", dependencies=[Depends(dev_only)])
+def dev_agent_text(t: DevText):
+    from . import pure_agent
+    pure_agent.handle(t.from_phone.strip(), t.body)
+    return {"ok": True}
+
+
 # Fictional 555-01xx numbers (never real phones) across Ohio area codes, for simulator users.
 SIM_AREA_CODES = ["740", "614", "330", "216", "513", "937", "419", "220", "380", "567", "234", "440"]
 
