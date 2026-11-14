@@ -1,4 +1,9 @@
-"""Places, clinics and the mock clinic calendar (app/data/*.json + the bookings table)."""
+"""Places, clinics and their open times (app/data/*.json, athenahealth, the bookings table).
+
+Which clinics exist comes from app/clinics.py; which ones to offer a patient is decided by
+app/finder.py. This module turns places and times into text and reads each clinic's calendar:
+athenahealth for clinics with an "athena" block, the mock calendar for the rest.
+"""
 import datetime as dt
 import json
 import logging
@@ -8,6 +13,7 @@ import time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from . import clinics as directory
 from . import config, db
 
 log = logging.getLogger("services")
@@ -27,7 +33,27 @@ def places() -> list[dict]:
 
 
 def clinics() -> dict[str, dict]:
-    return {s["id"]: s for s in _load("services.json", "services")}
+    """Every clinic we know, by id (see app/clinics.py for where they come from)."""
+    return directory.every()
+
+
+def clinic_tz(service_id: str) -> ZoneInfo:
+    """The clinic's own timezone: visit times are shown the way its front desk says them."""
+    return _zone(clinics().get(service_id))
+
+
+def _zone(svc: dict | None) -> ZoneInfo:
+    try:
+        return ZoneInfo((svc or {}).get("tz") or config.CLINIC_TIMEZONE)
+    except Exception:
+        return TZ
+
+
+def practice_of(service_id: str) -> str | None:
+    """The athenahealth practice a clinic belongs to, or None for a mock-calendar clinic.
+    Patient and appointment ids are only valid inside their own practice."""
+    a = clinics().get(service_id, {}).get("athena")
+    return str(a.get("practiceid") or config.ATHENA_PRACTICE_ID) if a and config.ATHENA_ENABLED else None
 
 
 COORDS = re.compile(r"(-?\d{1,2}\.\d{2,})\s*,\s*(-?\d{1,3}\.\d{2,})")
@@ -68,26 +94,33 @@ def miles(a: dict, b: dict) -> float:
     return 2 * r * math.asin(math.sqrt(h))
 
 
-def when(ts: float, weekday: bool = True) -> str:
-    """'Tue 11/17 1:30PM' (Eastern time)."""
-    d = dt.datetime.fromtimestamp(ts, TZ)
+def when(ts: float, weekday: bool = True, tz: ZoneInfo | str | None = None) -> str:
+    """'Tue 11/17 1:30PM', in the clinic's timezone when given (default Eastern)."""
+    d = dt.datetime.fromtimestamp(ts, ZoneInfo(tz) if isinstance(tz, str) else tz or TZ)
     t = d.strftime("%I:%M%p").lstrip("0").replace(":00", "")
     return (f"{DAYS[d.weekday()]} " if weekday else "") + f"{d.month}/{d.day} {t}"
 
 
-def free_slots(svc: dict, n: int, after: float | None = None) -> list[dict]:
+def free_slots(svc: dict, n: int, after: float | None = None, need: str | None = None,
+               timeout: float | None = None, strict: bool = False) -> list[dict]:
     """Next n open slots for a clinic, from at least an hour from now.
 
     Each slot is {"ts": start time, "ext": athenahealth appointmentid or None, "atype": type id}.
-    Clinics with an "athena" block read their schedule from athenahealth (when keys are set);
-    the rest use the mock calendar built from "days" and "times".
+    Clinics with an "athena" block read their schedule from athenahealth (when keys are set),
+    asking for the appointment type mapped to the patient's need; the rest use the mock calendar
+    built from "days" and "times". `timeout` bounds the athenahealth call; with `strict` a failed
+    call raises instead of counting as "no open times".
     """
     earliest = max(after or 0, db.now() + 3600)
     if svc.get("athena") and config.ATHENA_ENABLED:
         taken_ext = db.taken_external(svc["id"])
-        return [s for s in _athena_slots(svc) if s["ts"] > earliest and s["ext"] not in taken_ext][:n]
+        slots = _athena_slots(svc, need, timeout, strict)
+        return [s for s in slots if s["ts"] > earliest and s["ext"] not in taken_ext][:n]
+    if not svc.get("days"):  # an athenahealth clinic while athenahealth is switched off
+        return []
     taken = db.taken_slots(svc["id"])
-    today = dt.datetime.now(TZ).date()
+    tz = _zone(svc)
+    today = dt.datetime.now(tz).date()
     out = []
     for d in range(LOOKAHEAD_DAYS):
         day = today + dt.timedelta(days=d)
@@ -95,7 +128,7 @@ def free_slots(svc: dict, n: int, after: float | None = None) -> list[dict]:
             continue
         for t in svc["times"]:
             hh, mm = map(int, t.split(":"))
-            ts = dt.datetime(day.year, day.month, day.day, hh, mm, tzinfo=TZ).timestamp()
+            ts = dt.datetime(day.year, day.month, day.day, hh, mm, tzinfo=tz).timestamp()
             if ts > earliest and ts not in taken:
                 out.append({"ts": ts, "ext": None, "atype": None})
                 if len(out) >= n:
@@ -103,7 +136,7 @@ def free_slots(svc: dict, n: int, after: float | None = None) -> list[dict]:
     return out
 
 
-_athena_cache: dict[str, tuple[float, list[dict]]] = {}
+_athena_cache: dict[tuple, tuple[float, list[dict]]] = {}  # (clinic id, visit type) -> (when, slots)
 ATHENA_CACHE_SECONDS = 30  # Preview allows only a few requests a second
 
 
@@ -112,32 +145,50 @@ def forget_athena_slots(service_id: str | None = None) -> None:
     if service_id is None:
         _athena_cache.clear()
     else:
-        _athena_cache.pop(service_id, None)
+        for key in [k for k in _athena_cache if k[0] == service_id]:
+            _athena_cache.pop(key, None)
 
 
-def _athena_slots(svc: dict) -> list[dict]:
-    hit = _athena_cache.get(svc["id"])
+def visit_type(svc: dict, need: str | None = None) -> dict:
+    """What to ask athenahealth for at this clinic: the appointment type (or reason) mapped to
+    the patient's need in clinic_overrides.json, else the clinic's default type."""
+    a = svc["athena"]
+    chosen = svc.get("types", {}).get(need) or {k: a[k] for k in ("appointmenttypeid", "reasonid", "providerid")
+                                                 if a.get(k)}
+    return {"practiceid": a.get("practiceid") or config.ATHENA_PRACTICE_ID, "departmentid": a["departmentid"],
+            **chosen}
+
+
+def _athena_slots(svc: dict, need: str | None = None, timeout: float | None = None,
+                  strict: bool = False) -> list[dict]:
+    ask = visit_type(svc, need)
+    key = (svc["id"], ask.get("appointmenttypeid") or "r" + str(ask.get("reasonid", "")), ask.get("providerid", ""))
+    hit = _athena_cache.get(key)
     if hit and time.time() - hit[0] < ATHENA_CACHE_SECONDS:
         return hit[1]
     from .athena import client  # imported here so the mock calendar never needs it
 
-    today = dt.datetime.now(TZ).date()
+    tz = _zone(svc)  # athenahealth gives slot times in the department's local time
+    today = dt.datetime.now(tz).date()
     try:
-        raw = client.open_slots(svc["athena"], today, today + dt.timedelta(days=LOOKAHEAD_DAYS))
+        raw = client.open_slots(ask, today, today + dt.timedelta(days=LOOKAHEAD_DAYS), timeout=timeout,
+                                deadline=time.monotonic() + timeout if timeout else None)
     except Exception as e:  # athena down or misconfigured: skip this clinic, never crash a text
         log.warning("athenahealth open slots for %s failed: %s", svc["id"], e)
+        if strict:
+            raise
         return []
     slots = []
     for a in raw:
         try:
             m, d, y = map(int, a["date"].split("/"))
-            hh, mm = map(int, a["starttime"].split(":"))
+            hh, mm = map(int, a["starttime"].split(":")[:2])
         except (KeyError, ValueError):
             continue
-        slots.append({"ts": dt.datetime(y, m, d, hh, mm, tzinfo=TZ).timestamp(),
+        slots.append({"ts": dt.datetime(y, m, d, hh, mm, tzinfo=tz).timestamp(),
                       "ext": str(a["appointmentid"]), "atype": str(a.get("appointmenttypeid") or "") or None})
     slots.sort(key=lambda x: x["ts"])
-    _athena_cache[svc["id"]] = (time.time(), slots)
+    _athena_cache[key] = (time.time(), slots)
     return slots
 
 
@@ -150,34 +201,33 @@ def _option(svc: dict, slot: dict, place: dict | None) -> dict:
             "atype": slot["atype"], "mi": round(miles(place, svc)) if place else None}
 
 
-def options(income: str, place: dict, limit: int = 3) -> list[dict]:
-    """Nearest clinics for this income group, each with its next open time."""
-    group = [s for s in clinics().values() if s["for"] in (income, "all")]
-    group.sort(key=lambda s: miles(place, s))
-    opts = []
-    for s in group:
-        slot = free_slots(s, 1)
-        if slot:
-            opts.append(_option(s, slot[0], place))
-        if len(opts) >= limit:
-            break
-    return opts
+def options(income: str, place: dict, limit: int = 3, need: str | None = None) -> list[dict]:
+    """Up to `limit` clinics for this patient, each with its next open time (see app/finder.py)."""
+    from . import finder  # imported here: finder builds on this module
+
+    return finder.recommend(place, income, need, limit)
 
 
-def next_times(service_id: str, place: dict | None, limit: int = 3) -> list[dict]:
+def next_times(service_id: str, place: dict | None, limit: int = 3, need: str | None = None) -> list[dict]:
     """Next open times at one clinic (used when a picked slot was just taken)."""
     svc = clinics()[service_id]
-    return [_option(svc, slot, place) for slot in free_slots(svc, limit)]
+    return [_option(svc, slot, place) for slot in free_slots(svc, limit, need=need)]
 
 
 def option_lines(opts: list[dict], header: str, budget: int = 160) -> str:
     """Numbered options in one text, dropping detail until it fits the budget."""
-    if len({o["service_id"] for o in opts}) == 1:  # all at one clinic: the header names it
-        return "\n".join([header] + [f"{i}) {when(o['ts'])}" for i, o in enumerate(opts, 1)])
+    known = clinics()
+    tz = {o["service_id"]: _zone(known.get(o["service_id"])) for o in opts}
+
+    def at(o, weekday=True):
+        return when(o["ts"], weekday, tz[o["service_id"]])
+
+    if len(tz) == 1:  # all at one clinic: the header names it
+        return "\n".join([header] + [f"{i}) {at(o)}" for i, o in enumerate(opts, 1)])
     formats = [
-        lambda i, o: f"{i}) {o['short']} {o['mi']}mi {when(o['ts'])}",
-        lambda i, o: f"{i}) {o['short']} {o['mi']}mi {when(o['ts'], weekday=False)}",
-        lambda i, o: f"{i}) {o['short'][:14]} {o['mi']}mi {when(o['ts'], weekday=False)}",
+        lambda i, o: f"{i}) {o['short']} {o['mi']}mi {at(o)}",
+        lambda i, o: f"{i}) {o['short']} {o['mi']}mi {at(o, False)}",
+        lambda i, o: f"{i}) {o['short'][:14].strip()} {o['mi']}mi {at(o, False)}",
     ]
     msg = ""
     for f in formats:
