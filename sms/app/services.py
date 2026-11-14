@@ -251,14 +251,14 @@ def nearest_pharmacies(place: dict, n: int = 3) -> list[dict]:
 
 
 def pharmacy_lines(phs: list[dict], header: str, home_town: str = "", budget: int = 160) -> str:
-    """Numbered pharmacies in one text: name, town (if not theirs), miles, phone."""
+    """Pharmacies in one text, as a dashed list (numbers are kept for real choices): name, town, miles, phone."""
     def short(name: str) -> str:  # the header already says "pharmacies"
         name = re.sub(r"\s+(Family\s+)?Pharmacy\b.*$|\s+Health Centers?$", lambda m: " Health" if "Health" in m.group(0) else "", name)
         return name.strip() or "Pharmacy"
     formats = [
-        lambda i, ph: f"{i}) {short(ph['name'])[:18]} {ph['town']} {ph['mi']}mi {ph['phone']}",
-        lambda i, ph: f"{i}) {short(ph['name'])[:14]} {ph['town'][:11]} {ph['phone']}",
-        lambda i, ph: f"{i}) {short(ph['name'])[:14]} {ph['phone']}",
+        lambda i, ph: f"- {short(ph['name'])[:18]} {ph['town']} {ph['mi']}mi {ph['phone']}",
+        lambda i, ph: f"- {short(ph['name'])[:14]} {ph['town'][:11]} {ph['phone']}",
+        lambda i, ph: f"- {short(ph['name'])[:14]} {ph['phone']}",
     ]
     msg = ""
     for f in formats:
