@@ -68,6 +68,7 @@ if not LIVE:
         "none of those work, i need evenings": {"option": 0},
         "sure": {"option": -1},
         "whichever": {"option": 9},
+        "i think my dad is having a hart atack": {"answer": "unclear", "emergency": True},
         "somewhere near mars": {"town": "Atlantis"},
     })
 print(f"== {'LIVE model' if LIVE else 'scripted stand-in'}; understanding enabled: {understand.enabled()}")
@@ -116,6 +117,13 @@ if not LIVE:
     check("a number that was not offered is refused", r and r[-1].startswith("Reply a number"))
 r = text(C, "none of those work, i need evenings")
 check("declining all hands over to a health worker", r and "health worker will text" in r[-1])
+
+print("== An emergency the keyword list misses, in the middle of the booking questions")
+G = "+17405552007"
+text(G, "need a doctor 45701")
+r = text(G, "i think my dad is having a hart atack")
+check("911 reply instead of the next question", r and "911" in r[-1])
+check("recorded as an emergency", db.open_case_for(G)["urgency"] == "emergency")
 
 print("== Emergencies never reach the model")
 n = len(calls)

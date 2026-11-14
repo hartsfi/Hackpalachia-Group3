@@ -169,18 +169,7 @@ def _from_patient(phone: str, body: str) -> None:
 
     # Emergencies first, at any point in the conversation: no booking flow.
     if EMERGENCY_WORDS.search(body):
-        if case is None:
-            tri = triage(body)
-            case_id = db.create_case(phone, tri)
-            case = db.get_case(case_id)
-        db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
-        db.update_case(case_id, urgency="emergency", stage=None)
-        lang = case["language"]
-        if CRISIS_WORDS.search(body):
-            sms.send(phone, _t(lang, "crisis"), case_id, "system")
-        else:
-            sms.send(phone, _t(lang, "emergency"), case_id, "system")
-        _notify_chws(case, f"[#{case_id} EMERGENCY] {_tail(phone)}: {body}\nReply: #{case_id} your message")
+        _emergency(phone, body, case)
         return
 
     if word == "help":
@@ -199,7 +188,11 @@ def _from_patient(phone: str, body: str) -> None:
     db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     stage = case["stage"]
     # "im on medicaid", "the tuesday one": turned into the exact answer the question expects.
+    heard = body
     body, word = understand.answer(case, body, word)
+    if word == understand.EMERGENCY:  # Claude read the reply as an emergency the keywords missed
+        _emergency(phone, heard, case, logged=True)
+        return
     if stage == "ask_where":
         _on_where(case, body)
     elif stage == "ask_income":
@@ -212,8 +205,29 @@ def _from_patient(phone: str, body: str) -> None:
         _notify_chws(case, f"[#{case_id}] {_tail(phone)}: {body}")
 
 
+def _emergency(phone: str, body: str, case, tri: dict | None = None, logged: bool = False) -> None:
+    """911 / 988 reply and an alert to the health workers. No booking questions.
+
+    Reached three ways: the keyword list (always, in code), Claude's triage of a first text, and
+    Claude reading a mid-conversation reply. The reply itself is always a fixed template.
+    """
+    if case is None:
+        case_id = db.create_case(phone, tri or triage(body))
+        case = db.get_case(case_id)
+    case_id = case["id"]
+    if not logged:
+        db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
+    db.update_case(case_id, urgency="emergency", stage=None)
+    key = "crisis" if CRISIS_WORDS.search(body) else "emergency"
+    sms.send(phone, _t(case["language"], key), case_id, "system")
+    _notify_chws(case, f"[#{case_id} EMERGENCY] {_tail(phone)}: {body}\nReply: #{case_id} your message")
+
+
 def _new_case(phone: str, body: str) -> None:
     tri = triage(body)
+    if tri["urgency"] == "emergency":  # the keywords missed it but triage did not
+        _emergency(phone, body, None, tri)
+        return
     case_id = db.create_case(phone, tri)
     db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     case = db.get_case(case_id)
