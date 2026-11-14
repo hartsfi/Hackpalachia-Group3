@@ -1,6 +1,10 @@
 import asyncio
+import hashlib
+import hmac
+import json
 import logging
 import secrets
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -11,6 +15,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 
 from . import config, db, relay, services
+from . import sms as sms_mod
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 STATIC = Path(__file__).parent / "static"
@@ -73,10 +78,32 @@ async def sms_inbound(request: Request):
     return Response(EMPTY_TWIML, media_type="application/xml")
 
 
+# ---------------------------------------------------------------- Android gateway webhook
+@app.post("/sms/android")
+async def sms_android(request: Request):
+    """Incoming text from SMS Gateway for Android (event sms:received)."""
+    raw = await request.body()
+    if config.ANDROID_SIGNING_KEY:
+        ts = request.headers.get("X-Timestamp", "")
+        sig = request.headers.get("X-Signature", "")
+        want = hmac.new(config.ANDROID_SIGNING_KEY.encode(), raw + ts.encode(), hashlib.sha256).hexdigest()
+        fresh = ts.isdigit() and abs(time.time() - int(ts)) <= 300
+        if not (fresh and hmac.compare_digest(want.lower(), sig.lower())):
+            raise HTTPException(403, "bad gateway signature")
+    data = json.loads(raw or b"{}")
+    if data.get("event") == "sms:received":
+        p = data.get("payload") or {}
+        sender = sms_mod.normalize(p.get("sender") or p.get("phoneNumber") or "")
+        if sender:
+            await run_in_threadpool(relay.handle_incoming, sender, p.get("message", ""))
+    return {"ok": True}
+
+
 @app.get("/health")
 def health():
-    return {"ok": True, "twilio": config.TWILIO_ENABLED, "claude": bool(config.ANTHROPIC_API_KEY),
-            "simulator": config.DEV_SIMULATOR}
+    return {"ok": True, "sms": config.SMS_PROVIDER if config.SMS_ENABLED else "dev",
+            "twilio": config.TWILIO_ENABLED, "android": config.ANDROID_ENABLED,
+            "claude": bool(config.ANTHROPIC_API_KEY), "simulator": config.DEV_SIMULATOR}
 
 
 # ---------------------------------------------------------------- dashboard API

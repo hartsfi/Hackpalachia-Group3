@@ -30,4 +30,16 @@ ATHENA_BASE_URL = os.getenv("ATHENA_BASE_URL", "").strip().rstrip("/")   # overr
 ATHENA_ENABLED = bool(ATHENA_CLIENT_ID and ATHENA_CLIENT_SECRET)
 
 TWILIO_ENABLED = bool(TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN)
-DEV_SIMULATOR = (not TWILIO_ENABLED) or os.getenv("DEV_SIMULATOR", "") == "1"
+
+# SMS Gateway for Android (https://sms-gate.app): an Android phone with a SIM is the clinic number.
+ANDROID_GATEWAY_URL = os.getenv("ANDROID_GATEWAY_URL", "https://api.sms-gate.app/3rdparty/v1").strip().rstrip("/")
+ANDROID_GATEWAY_USER = os.getenv("ANDROID_GATEWAY_USER", "").strip()
+ANDROID_GATEWAY_PASSWORD = os.getenv("ANDROID_GATEWAY_PASSWORD", "").strip()
+ANDROID_SIGNING_KEY = os.getenv("ANDROID_SIGNING_KEY", "").strip()  # app: Settings > Webhooks > Signing Key
+ANDROID_ENABLED = bool(ANDROID_GATEWAY_USER and ANDROID_GATEWAY_PASSWORD)
+
+# Which service sends texts: "android" or "twilio". Default: Android if set up, else Twilio.
+SMS_PROVIDER = os.getenv("SMS_PROVIDER", "").strip().lower() or (
+    "android" if ANDROID_ENABLED else "twilio" if TWILIO_ENABLED else "dev")
+SMS_ENABLED = (SMS_PROVIDER == "android" and ANDROID_ENABLED) or (SMS_PROVIDER == "twilio" and TWILIO_ENABLED)
+DEV_SIMULATOR = (not SMS_ENABLED) or os.getenv("DEV_SIMULATOR", "") == "1"

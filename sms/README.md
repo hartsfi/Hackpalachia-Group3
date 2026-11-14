@@ -45,7 +45,13 @@ uv run uvicorn app.main:app --reload --port 8790
 
 Patients can text `CANCEL VISIT`, `RESCHEDULE`, `HELP`, `STOP` and `START`.
 
-## Connect real phones (Twilio)
+## Connect real phones
+
+**Today, no registration:** an Android phone as the clinic number with SMS Gateway for Android, see
+"Real SMS today with an Android phone" in [TESTING.md](TESTING.md).
+
+**Twilio** (toll-free or 10DLC number, needs carrier registration, takes days):
+
 
 1. Buy a number with SMS in the Twilio console (a 740 area code is local to Southeast Ohio).
 2. Fill in `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `CLINIC_NUMBER`, `CHW_NUMBERS` and

@@ -114,6 +114,39 @@ start the fake on 8796 and the server on 8797 with a fresh `DB_PATH`, then
 
 The Preview sandbox is shared test data: never use real patient names or birthdays there.
 
+## Real SMS today with an Android phone (no carrier registration)
+
+An Android phone with a SIM becomes the clinic number, using the free open-source app
+**SMS Gateway for Android** (https://sms-gate.app). Texts go phone-to-phone over the SIM's own plan,
+so no Twilio or carrier registration is needed. You need a second phone to play the patient.
+
+1. **Phone:** any Android 5+ phone with a SIM that can text (a prepaid phone + plan works).
+   Keep it charged and on Wi-Fi or data.
+2. **App:** install "SMS Gateway for Android" (Google Play, or the APK from
+   https://github.com/capcom6/android-sms-gateway/releases). Open it, allow SMS permissions, and
+   turn off battery optimisation for it (Android settings → Apps → the app → Battery → Unrestricted).
+3. **Cloud server:** in the app, switch on **Cloud server** and tap the start/online switch. The
+   **Home** tab then shows a **username** and **password**.
+4. **Signing key:** in the app, **Settings → Webhooks → Signing Key**: copy it.
+5. **`.env`** in `sms/`:
+   ```
+   ANDROID_GATEWAY_USER=<username from the app>
+   ANDROID_GATEWAY_PASSWORD=<password from the app>
+   ANDROID_SIGNING_KEY=<signing key from the app>
+   SMS_PROVIDER=android
+   CLINIC_NUMBER=<the Android phone's own number, e.g. +17405551234>
+   PUBLIC_BASE_URL=<your https tunnel address>
+   ```
+6. Restart the server, then register the webhook so incoming texts reach the server:
+   ```bash
+   uv run python tools/android_setup.py          # prints: incoming texts now go to …/sms/android
+   uv run python tools/android_setup.py test +1<your other phone>   # the Android phone texts you
+   ```
+7. From the other phone, text `hi` to the Android phone's number. Replies come from the Android phone.
+
+Run `tools/android_setup.py` again whenever the tunnel address changes. `/health` shows
+`"sms": "android"` when it is active. Test without a phone: `tools/fake_android.py` (see its header).
+
 ## Level 2: real phones with a Twilio trial (free, ~15 minutes)
 
 **Only one phone?** Your phone is the patient; the health worker stays on the laptop. Leave
