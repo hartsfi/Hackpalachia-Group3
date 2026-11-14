@@ -24,22 +24,28 @@ CATEGORIES = [
 ]
 URGENCIES = ["low", "medium", "high", "emergency"]
 
+# Checked in code on every text, before anything else. Deliberately broad: a false alarm costs
+# one 911 reminder, a miss could cost a life. English and Spanish.
 EMERGENCY_WORDS = re.compile(
-    r"chest (pain|hurts?|is (hurting|tight)|tight(ness)?|pressure)|heart attack|"
+    r"chest (pain|hurts?|is (hurting|tight)|tight(ness)?|pressure)|heart attack|cardiac|"
     r"can[’']?t breathe|cannot breathe|can'?t catch (my|his|her) breath|not breathing|"
     r"(hard|trouble|struggling) (to )?breath(e|ing)|"
     r"stroke|face (is )?droop|slurred speech|(arm|face|side) (is |went |going )?numb|"
-    r"passed out|fainted|unconscious|unresponsive|won'?t wake|seizure|"
+    r"passed out|fainted|unconscious|unresponsive|not responding|won[’']?t wake|seizure|"
+    r"choking|anaphyla|"
     r"overdos|took too many( of)?( my| his| her| their)? (pills|meds|medicine)|"
-    r"bleeding (a lot|heavily|badly|won'?t stop)|severe bleeding|heavy bleeding|"
+    r"bleeding (a lot|heavily|badly|won[’']?t stop)|severe bleeding|heavy bleeding|won[’']?t stop bleeding|"
     r"throat (is )?(closing|swelling)|can'?t swallow|"
     r"suicid|kill myself|end my life|want to die|hurt myself|"
-    r"(don[’']?t|do not|no) see (the|any) point|no reason to live|better off without me",
+    r"(don[’']?t|do not|no) see (the|any) point|no reason to live|better off without me|"
+    r"ataque al corazon|ataque al corazón|infarto|no puedo respirar|no respira|derrame|sobredosis|"
+    r"convulsion|convulsión|matarme|quitarme la vida",
     re.I,
 )
 CRISIS_WORDS = re.compile(
     r"suicid|kill myself|end my life|want to die|hurt myself|"
-    r"(don[’']?t|do not|no) see (the|any) point|no reason to live|better off without me", re.I)
+    r"(don[’']?t|do not|no) see (the|any) point|no reason to live|better off without me|"
+    r"matarme|quitarme la vida", re.I)
 
 KEYWORDS = {
     "medication": r"\bmeds?\b|medicine|medication|medecine|prescription|perscription|refill|pharmac|farmac|"
