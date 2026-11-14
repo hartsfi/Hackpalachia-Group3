@@ -1,0 +1,20 @@
+[
+  {"zip": "45769", "town": "Pomeroy", "lat": 39.03, "lon": -82.03},
+  {"zip": "45760", "town": "Middleport", "lat": 39.00, "lon": -82.05},
+  {"zip": "45771", "town": "Racine", "lat": 38.97, "lon": -81.91},
+  {"zip": "45779", "town": "Syracuse", "lat": 39.00, "lon": -81.97},
+  {"zip": "45775", "town": "Rutland", "lat": 39.04, "lon": -82.13},
+  {"zip": "45701", "town": "Athens", "lat": 39.33, "lon": -82.10},
+  {"zip": "45780", "town": "The Plains", "lat": 39.37, "lon": -82.13},
+  {"zip": "45710", "town": "Albany", "lat": 39.22, "lon": -82.20},
+  {"zip": "45723", "town": "Coolville", "lat": 39.22, "lon": -81.80},
+  {"zip": "45732", "town": "Glouster", "lat": 39.50, "lon": -82.08},
+  {"zip": "45764", "town": "Nelsonville", "lat": 39.46, "lon": -82.23},
+  {"zip": "45651", "town": "McArthur", "lat": 39.25, "lon": -82.48},
+  {"zip": "45686", "town": "Vinton", "lat": 38.98, "lon": -82.34},
+  {"zip": "45631", "town": "Gallipolis", "lat": 38.81, "lon": -82.20},
+  {"zip": "43138", "town": "Logan", "lat": 39.54, "lon": -82.41},
+  {"zip": "45750", "town": "Marietta", "lat": 39.42, "lon": -81.45},
+  {"zip": "45640", "town": "Jackson", "lat": 39.05, "lon": -82.64},
+  {"zip": "45692", "town": "Wellston", "lat": 39.12, "lon": -82.53}
+]

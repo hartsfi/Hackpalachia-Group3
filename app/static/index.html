@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Text line test console</title>
+<style>
+  :root { --pine:#2C6E52; --deep:#163B2D; --ink:#13251E; --tint:#EEF3EF; --muted:#5B6B63; --amber:#E0912F; --sand:#F6E7C8; --red:#C8553D; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink); background:#fff; }
+  header { padding:20px 24px 0; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  header p { margin:0; color:var(--muted); font-size:14px; }
+  main { display:flex; gap:32px; padding:20px 24px 32px; flex-wrap:wrap; align-items:flex-start; }
+  .phone { width:340px; flex:0 0 auto; background:var(--ink); border-radius:36px; padding:12px; }
+  .screen { background:#fff; border-radius:26px; height:600px; display:flex; flex-direction:column; overflow:hidden; }
+  .bar { text-align:center; font-size:12px; color:var(--muted); padding:10px; border-bottom:1px solid var(--tint); }
+  #chat { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .msg { max-width:82%; padding:8px 11px; border-radius:14px; font-size:14px; line-height:1.35; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .me { align-self:flex-end; background:var(--pine); color:#fff; }
+  .them { align-self:flex-start; background:var(--tint); }
+  .sys { align-self:center; font-size:12px; color:var(--muted); }
+  form { display:flex; gap:8px; padding:10px; border-top:1px solid var(--tint); }
+  input[type=text] { flex:1; border:1px solid #cfd8d2; border-radius:18px; padding:9px 13px; font-size:14px; min-width:0; }
+  button { border:0; border-radius:18px; padding:9px 14px; font-size:14px; cursor:pointer; background:var(--pine); color:#fff; }
+  button.alt { background:var(--tint); color:var(--ink); border-radius:8px; }
+  button:disabled { opacity:.5; cursor:default; }
+  .side { flex:1 1 380px; min-width:300px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
+  .row label { font-size:13px; color:var(--muted); }
+  .row input { flex:0 0 150px; border-radius:8px; }
+  h2 { font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--pine); margin:0 0 8px; }
+  #log { border:1px solid var(--tint); border-radius:10px; max-height:520px; overflow-y:auto; font-size:13px; }
+  .ev { padding:8px 12px; border-bottom:1px solid var(--tint); display:grid; grid-template-columns:96px 1fr; gap:8px; }
+  .ev:last-child { border-bottom:0; }
+  .kind { font-weight:600; font-size:12px; }
+  .k-tool_call, .k-tool_result { color:var(--pine); }
+  .k-emergency, .k-error { color:var(--red); }
+  .k-demo, .k-keyword { color:#9a6212; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size:12px; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .empty { padding:16px; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Text line test console</h1>
+  <p>Stands in for a phone while the SMS layer is built separately. Clinics and appointment times are fictional demo data.</p>
+</header>
+<main>
+  <div class="phone"><div class="screen">
+    <div class="bar">Messages</div>
+    <div id="chat"></div>
+    <form id="send">
+      <input type="text" id="text" placeholder="Text message" autocomplete="off" aria-label="Text message">
+      <button id="go">Send</button>
+    </form>
+  </div></div>
+
+  <div class="side">
+    <div class="row">
+      <label for="phone">Texting from</label>
+      <input type="text" id="phone" value="+17405550100" aria-label="Phone number">
+    </div>
+    <div class="row">
+      <button class="alt" id="take">Another patient takes the first offered time</button>
+      <button class="alt" id="remind">Send the reminder now</button>
+      <button class="alt" id="reset">Reset demo data</button>
+    </div>
+    <h2>What the service did</h2>
+    <div id="log"><div class="empty">Nothing yet. Try: "bad cough for 3 weeks, im in 45769"</div></div>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const phone = () => $("phone").value.trim();
+const post = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) }).then((r) => r.json());
+
+function bubble(text, cls) {
+  const d = document.createElement("div");
+  d.className = "msg " + cls;
+  d.textContent = text;
+  $("chat").appendChild(d);
+  $("chat").scrollTop = $("chat").scrollHeight;
+  return d;
+}
+
+function summarize(ev) {
+  const d = ev.detail;
+  if (ev.kind === "inbound") return d.text;
+  if (ev.kind === "outbound") return d.text + "  (" + d.chars + " chars, via " + d.via + ")";
+  if (ev.kind === "tool_call") return d.name + "(" + JSON.stringify(d.input) + ")";
+  if (ev.kind === "tool_result") return d.name + " → " + JSON.stringify(d.result);
+  return JSON.stringify(d);
+}
+
+async function refresh() {
+  const s = await fetch("/api/state?phone=" + encodeURIComponent(phone())).then((r) => r.json());
+  const log = $("log");
+  log.textContent = "";
+  if (!s.events.length) { log.innerHTML = '<div class="empty">Nothing yet. Try: "bad cough for 3 weeks, im in 45769"</div>'; return; }
+  for (const ev of s.events) {
+    const row = document.createElement("div"); row.className = "ev";
+    const k = document.createElement("div"); k.className = "kind k-" + ev.kind; k.textContent = ev.kind.replace("_", " ");
+    const c = document.createElement("code"); c.textContent = summarize(ev);
+    row.append(k, c); log.appendChild(row);
+  }
+  log.scrollTop = log.scrollHeight;
+}
+
+$("send").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = $("text").value.trim();
+  if (!text) return;
+  $("text").value = "";
+  bubble(text, "me");
+  $("go").disabled = true;
+  const wait = bubble("…", "them");
+  try {
+    const r = await post("/api/message", { phone: phone(), text });
+    wait.remove();
+    if (r.reply) bubble(r.reply, "them"); else bubble("No reply sent", "sys");
+  } catch (err) {
+    wait.remove(); bubble("Could not reach the server", "sys");
+  }
+  $("go").disabled = false;
+  $("text").focus();
+  refresh();
+});
+
+$("take").addEventListener("click", async () => {
+  const r = await post("/api/demo/take-slot", { phone: phone() });
+  bubble(r.taken ? "Another patient just booked the first offered time" : "No offered time to take yet", "sys");
+  refresh();
+});
+$("remind").addEventListener("click", async () => {
+  const r = await post("/api/reminder", { phone: phone() });
+  if (r.reply) bubble(r.reply, "them"); else bubble("No upcoming visit to remind about", "sys");
+  refresh();
+});
+$("reset").addEventListener("click", async () => {
+  await post("/api/demo/reset");
+  $("chat").textContent = "";
+  refresh();
+});
+$("phone").addEventListener("change", () => { $("chat").textContent = ""; refresh(); });
+refresh();
+</script>
+</body>
+</html>
