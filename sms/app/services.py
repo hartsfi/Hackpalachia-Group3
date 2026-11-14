@@ -1,12 +1,16 @@
 """Places, clinics and the mock clinic calendar (app/data/*.json + the bookings table)."""
 import datetime as dt
 import json
+import logging
 import math
 import re
+import time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from . import db
+from . import config, db
+
+log = logging.getLogger("services")
 
 DATA = Path(__file__).parent / "data"
 TZ = ZoneInfo("America/New_York")
@@ -69,9 +73,17 @@ def when(ts: float, weekday: bool = True) -> str:
     return (f"{DAYS[d.weekday()]} " if weekday else "") + f"{d.month}/{d.day} {t}"
 
 
-def free_slots(svc: dict, n: int, after: float | None = None) -> list[float]:
-    """Next n open start times for a clinic, from at least an hour from now."""
+def free_slots(svc: dict, n: int, after: float | None = None) -> list[dict]:
+    """Next n open slots for a clinic, from at least an hour from now.
+
+    Each slot is {"ts": start time, "ext": athenahealth appointmentid or None, "atype": type id}.
+    Clinics with an "athena" block read their schedule from athenahealth (when keys are set);
+    the rest use the mock calendar built from "days" and "times".
+    """
     earliest = max(after or 0, db.now() + 3600)
+    if svc.get("athena") and config.ATHENA_ENABLED:
+        taken_ext = db.taken_external(svc["id"])
+        return [s for s in _athena_slots(svc) if s["ts"] > earliest and s["ext"] not in taken_ext][:n]
     taken = db.taken_slots(svc["id"])
     today = dt.datetime.now(TZ).date()
     out = []
@@ -83,15 +95,57 @@ def free_slots(svc: dict, n: int, after: float | None = None) -> list[float]:
             hh, mm = map(int, t.split(":"))
             ts = dt.datetime(day.year, day.month, day.day, hh, mm, tzinfo=TZ).timestamp()
             if ts > earliest and ts not in taken:
-                out.append(ts)
+                out.append({"ts": ts, "ext": None, "atype": None})
                 if len(out) >= n:
                     return out
     return out
 
 
-def _option(svc: dict, ts: float, place: dict | None) -> dict:
-    return {"service_id": svc["id"], "short": svc["short"], "ts": ts,
-            "mi": round(miles(place, svc)) if place else None}
+_athena_cache: dict[str, tuple[float, list[dict]]] = {}
+ATHENA_CACHE_SECONDS = 30  # Preview allows only a few requests a second
+
+
+def forget_athena_slots(service_id: str | None = None) -> None:
+    """Drop cached athenahealth times for one clinic, or all of them (after an athena error)."""
+    if service_id is None:
+        _athena_cache.clear()
+    else:
+        _athena_cache.pop(service_id, None)
+
+
+def _athena_slots(svc: dict) -> list[dict]:
+    hit = _athena_cache.get(svc["id"])
+    if hit and time.time() - hit[0] < ATHENA_CACHE_SECONDS:
+        return hit[1]
+    from .athena import client  # imported here so the mock calendar never needs it
+
+    today = dt.datetime.now(TZ).date()
+    try:
+        raw = client.open_slots(svc["athena"], today, today + dt.timedelta(days=LOOKAHEAD_DAYS))
+    except Exception as e:  # athena down or misconfigured: skip this clinic, never crash a text
+        log.warning("athenahealth open slots for %s failed: %s", svc["id"], e)
+        return []
+    slots = []
+    for a in raw:
+        try:
+            m, d, y = map(int, a["date"].split("/"))
+            hh, mm = map(int, a["starttime"].split(":"))
+        except (KeyError, ValueError):
+            continue
+        slots.append({"ts": dt.datetime(y, m, d, hh, mm, tzinfo=TZ).timestamp(),
+                      "ext": str(a["appointmentid"]), "atype": str(a.get("appointmenttypeid") or "") or None})
+    slots.sort(key=lambda x: x["ts"])
+    _athena_cache[svc["id"]] = (time.time(), slots)
+    return slots
+
+
+def uses_athena(service_id: str) -> bool:
+    return bool(config.ATHENA_ENABLED and clinics().get(service_id, {}).get("athena"))
+
+
+def _option(svc: dict, slot: dict, place: dict | None) -> dict:
+    return {"service_id": svc["id"], "short": svc["short"], "ts": slot["ts"], "ext": slot["ext"],
+            "atype": slot["atype"], "mi": round(miles(place, svc)) if place else None}
 
 
 def options(income: str, place: dict, limit: int = 3) -> list[dict]:
@@ -111,7 +165,7 @@ def options(income: str, place: dict, limit: int = 3) -> list[dict]:
 def next_times(service_id: str, place: dict | None, limit: int = 3) -> list[dict]:
     """Next open times at one clinic (used when a picked slot was just taken)."""
     svc = clinics()[service_id]
-    return [_option(svc, ts, place) for ts in free_slots(svc, limit)]
+    return [_option(svc, slot, place) for slot in free_slots(svc, limit)]
 
 
 def option_lines(opts: list[dict], header: str, budget: int = 160) -> str:

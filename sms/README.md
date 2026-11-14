@@ -15,6 +15,9 @@ Patients can also **book a visit entirely by text** (user story 1 in
 nearby visits with distance and next time, booking in a mock clinic calendar, `CANCEL VISIT` /
 `RESCHEDULE`, and a reminder 24 hours before. Low income is offered the mobile health unit and free
 or sliding-scale clinics first. Clinics and towns live in `app/data/` (sample data for now).
+Clinics can be connected to **athenahealth** (athenaOne): their open times come live from
+athenahealth and visits are booked, moved and cancelled there (see "athenahealth booking" in
+[TESTING.md](TESTING.md)). The others use the mock calendar.
 
 Each new text is triaged by need (rides, medicine, appointments, food, housing, mental health, insurance, utilities) and urgency. Claude does this when
 `ANTHROPIC_API_KEY` is set, keyword rules otherwise. Emergency and crisis words always get an
@@ -56,4 +59,5 @@ For a quick public URL while testing: `ngrok http 8790`.
 ## Health data
 
 Use made-up data in demos. Real patient texts need a Twilio BAA (HIPAA) or a self-hosted model
-for triage.
+for triage. With athenahealth on, patients text their name and date of birth once; that text is kept
+in the message log like every other text, and only the athenahealth patient id is stored separately.
