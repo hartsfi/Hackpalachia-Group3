@@ -38,9 +38,9 @@ r, _ = text(P1, "hi"); show(r); check("a greeting is not taken as a name", "firs
 r, _ = text(P1, "Jane Doe"); show(r)
 check("account created: name + CareLine ID sent", any("Thanks Jane! Your CareLine ID is CL-" in m["body"] for m in r))
 print("== Start")
-check("then asks what care + where", r and "ZIP" in r[-1]["body"] and "care" in r[-1]["body"])
+check("then the numbered menu (need not known yet)", r and "Reply a number" in r[-1]["body"] and "1 See a doctor" in r[-1]["body"])
 r, _ = text(P1, "hi"); show(r)
-check("a second greeting gets the first question again, not a place error", r and "ZIP" in r[-1]["body"] and "could not find" not in r[-1]["body"])
+check("a second greeting shows the menu again, not a place error", r and "Reply a number" in r[-1]["body"] and "could not find" not in r[-1]["body"])
 print("== Location"); r, _ = text(P1, "I live in Chicago"); show(r)
 check("unknown place asks again", r and "could not find" in r[-1]["body"])
 r, _ = text(P1, "need a checkup, 45764"); show(r)
@@ -105,11 +105,15 @@ print("== Existing patient (account, saved town, booked visit)")
 demo = post("/dev/demo-patient")
 D = demo["phone"]
 r, _ = text(D, "hi"); show(r)
-check("welcomed back by name with their next visit, no sign-up", len(r) == 1 and r[0]["body"].startswith("Welcome back Sam! Your next visit:"))
+check("welcomed back by name with their next visit, then the menu", len(r) == 2 and r[0]["body"].startswith("Welcome back Sam! Your next visit:") and "Reply a number" in r[1]["body"])
 r, _ = text(D, "when is my appointment"); show(r)
 check("'when is my appointment' gives date, time, place and phone", r[-1]["body"].startswith("Your next visit:") and "Call 740-" in r[-1]["body"])
 r, _ = text(D, "i need my meds refilled"); show(r)
 check("uses their saved town, no ZIP question", any(m["body"].startswith("Pharmacies near you") and "Nelsonville" in m["body"] for m in r))
+demo3 = post("/dev/demo-patient"); K = demo3["phone"]
+r, _ = text(K, "when is my appointment"); show(r); check("my visit ends with 'Reply 2 to cancel, 3 to reschedule'", "Reply 2 to cancel" in r[-1]["body"])
+r, _ = text(K, "2"); show(r); check("cancelling is one digit", "cancelled" in r[-1]["body"])
+r, _ = text(K, "my visit"); show(r); check("then no upcoming visit", "no upcoming visit" in r[-1]["body"])
 print("== Rides (Medicaid free rides, health worker books Uber Health)")
 check("a ride is offered after each booking", any(m["body"] == RIDE_OFFER for m in inbox(P1)))
 demo2 = post("/dev/demo-patient"); R = demo2["phone"]
@@ -127,6 +131,30 @@ V = "+17405550176"
 text(V, "I need a ride to my doctor appointment"); r, _ = text(V, "Pat Lee"); show(r)
 check("'I need a ride' goes straight to ride options after sign-up", "health worker will book a ride" in r[-1]["body"])
 r, _ = text(V, "0"); show(r); check("0 = no ride", "no ride" in r[-1]["body"].lower())
+print("== Numbered menu")
+N = "+17405550177"
+text(N, "hi"); r, _ = text(N, "Ann Bell"); show(r)
+check("after sign-up: menu with 6 numbered choices and 911", r[-1]["body"].count("\n") >= 7 and "Emergency: call 911" in r[-1]["body"])
+check("menu fits one SMS", len(r[-1]["body"]) <= 160)
+r, _ = text(N, "9"); show(r); check("a number not on the menu shows the menu again", "Reply a number" in r[-1]["body"])
+r, _ = text(N, "4"); show(r); check("4 = real mobile clinic stops", "740-593-2432" in r[-1]["body"])
+r, _ = text(N, "5"); show(r); check("5 = my visit (none yet)", "no upcoming visit" in r[-1]["body"])
+r, _ = text(N, "3"); show(r); check("3 = medicine: asks the town for a pharmacy", "find a pharmacy near you" in r[-1]["body"])
+r, _ = text(N, "Glouster"); show(r); check("then pharmacies near Glouster", any(m["body"].startswith("Pharmacies near you") for m in r))
+N6 = "+17405550182"
+text(N6, "hi"); text(N6, "SKIP"); r, _ = text(N6, "45701"); show(r)
+check("a ZIP typed at the menu is taken as the place, not a wrong number", "Athens, OH 45701" in r[-1]["body"])
+N2 = "+17405550178"
+text(N2, "hello"); text(N2, "SKIP"); r, _ = text(N2, "1"); show(r)
+check("1 = see a doctor: asks the town", "ZIP code or town" in r[-1]["body"])
+r, _ = text(N2, "45701"); show(r); check("then the income question", "Reply 1 if low income" in r[-1]["body"])
+N3 = "+17405550179"
+text(N3, "hey"); text(N3, "SKIP"); r, _ = text(N3, "2"); show(r); check("2 = ride options", "book a ride" in r[-1]["body"])
+N4 = "+17405550180"
+text(N4, "hi"); text(N4, "SKIP"); r, _ = text(N4, "6"); show(r); check("6 = a health worker will text", "health worker will text you" in r[-1]["body"])
+N5 = "+17405550181"
+text(N5, "hi"); text(N5, "SKIP"); r, _ = text(N5, "im low on my pills, 45764"); show(r)
+check("typing the need instead of a number still works", any(m["body"].startswith("Pharmacies near you") for m in r))
 print("== Reminder")
 case1 = [c for c in get("/api/cases") if c["patient_phone"] == P1][0]
 bk = [x for x in get(f"/api/cases/{case1['id']}")["bookings"] if x["status"] == "booked"][0]
@@ -148,7 +176,7 @@ print("== Returning user")
 c1 = [c for c in get("/api/cases") if c["patient_phone"] == P1][0]["id"]
 post("/dev/text", {"from_phone": W, "body": f"#{c1} close"})
 r, _ = text(P1, "hi"); show(r)
-check("returning user is welcomed back by name, no sign-up again", r and r[-1]["body"].startswith("Welcome back Jane!") and len(r) == 1)
+check("returning user is welcomed back by name, then the menu", r and r[0]["body"].startswith("Welcome back Jane!") and "Reply a number" in r[-1]["body"])
 r, _ = text(P1, "my id"); show(r); check("MY ID returns the ID and name", r and "CL-" in r[-1]["body"] and "Jane Doe" in r[-1]["body"])
 print("== Opt out"); r, _ = text(P3, "STOP"); check("STOP gets no reply from us (Twilio confirms)", not r)
 n = len(inbox(P3)); post("/dev/text", {"from_phone": W, "body": f"#{[c for c in get('/api/cases') if c['patient_phone']==P3][0]['id']} hello?"})
