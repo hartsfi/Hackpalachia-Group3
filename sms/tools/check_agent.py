@@ -55,12 +55,13 @@ def fake_create(system, messages):
     plan = SCRIPT.get(msg, [])
     calls.append((msg, step))
     if step >= len(plan):
-        return NS(content=[NS(type="text", text="")])
+        return NS(content=[NS(type="text", text="thinking out loud, which must never be sent")])
     kind, a, b = plan[step]
     if kind == "tool":
         return NS(content=[NS(type="tool_use", id=f"t{len(calls)}", name=a, input=b)])
     last = messages[-1]["content"][0]["content"] if step else ""  # the previous tool's result
-    return NS(content=[NS(type="text", text=a(json.loads(last)) if callable(a) else a)])
+    reply = a(json.loads(last)) if callable(a) else a
+    return NS(content=[NS(type="tool_use", id=f"t{len(calls)}", name="send_reply", input={"text": reply})])
 
 
 if not LIVE:
@@ -80,6 +81,8 @@ if not LIVE:
         "my tooth is killing me now too": [("tool", "start_booking", {"need": "dental", "summary": "toothache"})],
         "can someone call me about my bill": [("tool", "health_worker", {"reason": "billing question"})],
         "why do you need to know that?": [("text", "So we can show free and low-cost clinics first.", None)],
+        "no": [("text", "OK, no ride. Text RIDE any time if you need one.", None)],
+        "hmm": [],
     })
 
 print(f"== {'LIVE model ' + config.AGENT_MODEL if LIVE else 'scripted stand-in'}; agent enabled: {agent.enabled()}")
@@ -97,6 +100,17 @@ text(P, "1")
 r = text(P, "12 Main St, Nelsonville")
 check("set-up: ride requested", r and "health worker will book your ride" in r[-1])
 visit = db.active_booking(P)
+
+print("== Every lookup tool runs on real data without an error")
+case, pat = db.open_case_for(P), db.get_patient(P)
+for tool in [t["name"] for t in agent.TOOLS if t["name"] not in agent.ACTIONS | {"send_reply"}]:
+    for args in ({}, {"town_or_zip": "nelsonvile"}, {"town_or_zip": "45701"}):
+        try:
+            out = json.loads(agent._run(tool, args, case, pat, "x"))
+            good = "error" not in out if isinstance(out, dict) else bool(out)
+        except Exception as e:
+            good, out = False, repr(e)
+        check(f"{tool} {args or ''}", good, "" if good else str(out)[:120])
 
 print("== The screenshot: a question after the ride request gets an answer")
 r = text(P, "What's the address you booked?")
@@ -146,6 +160,18 @@ if not LIVE:
     n = len(calls)
     text(S, "1")
     check("a plain pick never reaches the agent", len(calls) == n)
+
+    print("== Free text from the model (reasoning) is never sent")
+    r = text(P, "hmm")
+    check("no reasoning text reaches the patient", not any("thinking out loud" in x for x in r))
+    check("the patient still gets an answer (a health worker)", r and "health worker will text you" in r[-1])
+
+    print("== Dates of birth never reach the model")
+    seen = []
+    agent._create = lambda system, messages: (seen.append(system + json.dumps(messages[0])), fake_create(system, messages))[1]
+    text(P, "my birthday is 03/14/1990 and october 11, 2005")
+    check("not in the new text or the history", seen and not any(d in x for x in seen for d in ("03/14/1990", "2005", "11, 2005")))
+    agent._create = fake_create
 
     print("== Model failure: a person takes over, the patient is told")
     agent._create = lambda *a: (_ for _ in ()).throw(RuntimeError("down"))
