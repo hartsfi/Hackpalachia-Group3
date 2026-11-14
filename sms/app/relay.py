@@ -15,6 +15,7 @@ Emergencies skip all of this: 911 / 988 first, CHWs alerted, no booking.
 Every text to a patient is kept within 160 GSM-7 characters (no links).
 """
 import datetime as dt
+import difflib
 import json
 import logging
 import re
@@ -253,18 +254,7 @@ def _from_patient(phone: str, body: str) -> None:
 
     # Emergencies first, at any point in the conversation: no booking flow.
     if EMERGENCY_WORDS.search(body) or (tri and tri["urgency"] == "emergency"):
-        if case is None:
-            tri = tri or triage(body)
-            case_id = db.create_case(phone, tri)
-            case = db.get_case(case_id)
-        db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
-        db.update_case(case_id, urgency="emergency", stage=None)
-        lang = case["language"]
-        if CRISIS_WORDS.search(body):
-            sms.send(phone, _t(lang, "crisis"), case_id, "system")
-        else:
-            sms.send(phone, _t(lang, "emergency"), case_id, "system")
-        _notify_chws(case, f"[#{case_id} EMERGENCY] {_tail(phone)}: {body}\nReply: #{case_id} your message")
+        _emergency(phone, body, case, tri)
         return
 
     if word == "help":
@@ -294,6 +284,11 @@ def _from_patient(phone: str, body: str) -> None:
         _send_my_id(phone, case)
         return
 
+    intent = _visit_intent(word)  # "i want to cancell my apointment", typos included
+    if intent:
+        _change_visit(phone, body, intent, case)
+        return
+
     if word in CANCEL_VISIT or word in RESCHEDULE:
         _change_visit(phone, body, word, case)
         return
@@ -305,7 +300,11 @@ def _from_patient(phone: str, body: str) -> None:
     db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     stage = case["stage"]
     # "im on medicaid", "the tuesday one": turned into the exact answer the question expects.
+    heard = body
     body, word = understand.answer(case, body, word)
+    if word == understand.EMERGENCY:  # Claude read the reply as an emergency the keywords missed
+        _emergency(phone, heard, case, logged=True)
+        return
     if stage == "ask_visit" and word in ("2", "3"):  # after "my visit": 2 = cancel, 3 = reschedule
         _change_visit(phone, body, "cancel visit" if word == "2" else "reschedule", case)
     elif stage == "menu":
@@ -332,10 +331,44 @@ def _from_patient(phone: str, body: str) -> None:
         _notify_chws(case, f"[#{case_id}] {_tail(phone)}: {body}")
 
 
+def _emergency(phone: str, body: str, case, tri: dict | None = None, logged: bool = False) -> None:
+    """911 / 988 reply and an alert to the health workers. No booking questions.
+
+    Reached three ways: the keyword list (always, in code), Claude's triage of a first text, and
+    Claude reading a mid-conversation reply. The reply itself is always a fixed template.
+    """
+    if case is None:
+        case_id = db.create_case(phone, tri or triage(body))
+        case = db.get_case(case_id)
+    case_id = case["id"]
+    if not logged:
+        db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
+    db.update_case(case_id, urgency="emergency", stage=None)
+    key = "crisis" if CRISIS_WORDS.search(body) else "emergency"
+    sms.send(phone, _t(case["language"], key), case_id, "system")
+    _notify_chws(case, f"[#{case_id} EMERGENCY] {_tail(phone)}: {body}\nReply: #{case_id} your message")
+
+
 MY_VISIT = re.compile(
     r"^(my |next |my next )?(visit|appointment|appt|booking)s?\W*$|"
     r"\b(when|what time|where)\b.*\b(my|the)\b.*\b(appointment|appt|visit|booking)\b|"
     r"\b(do i have|have i got)\b.*\b(appointment|appt|visit)\b|^cita$|^mi cita\W*$", re.I)
+
+
+def _close(w: str, targets: tuple[str, ...], cutoff: float = 0.72) -> bool:
+    return any(difflib.SequenceMatcher(None, w, t).ratio() >= cutoff for t in targets)
+
+
+def _visit_intent(word: str) -> str | None:
+    """'cancel visit' / 'reschedule' from free text with typos, e.g. 'i want ot cncell my appointment'."""
+    words = re.findall(r"[a-z]+", word)
+    if not any(_close(w, ("appointment", "apointment", "appt", "visit", "booking", "cita")) for w in words if len(w) >= 4):
+        return None
+    if any(_close(w, ("cancel", "cancell", "cancelar")) for w in words if len(w) >= 4):
+        return "cancel visit"
+    if any(_close(w, ("reschedule", "change", "move", "cambiar")) for w in words if len(w) >= 4):
+        return "reschedule"
+    return None
 
 
 RIDE_WORDS = {"ride", "a ride", "need a ride", "i need a ride", "transport", "transportation", "viaje", "transporte"}
@@ -785,18 +818,57 @@ def _book_pick(case, pick: dict) -> None:
                        f"({case['income']} income, {case['zip']})" + (f" athena appt {ext}" if ext else ""))
 
 
+# Dates of birth as people actually type them: 03/14/1980, 1980-03-14, "October 11 2005",
+# "oct 11th, 2005", "11 de octubre de 2005". Month names in English, Spanish and French.
+_MONTHS = {name: n for n, names in enumerate([
+    ("january", "jan", "enero", "ene", "janvier"), ("february", "feb", "febrero", "fevrier", "février"),
+    ("march", "mar", "marzo", "mars"), ("april", "apr", "abril", "abr", "avril"), ("may", "mayo", "mai"),
+    ("june", "jun", "junio", "juin"), ("july", "jul", "julio", "juillet"),
+    ("august", "aug", "agosto", "ago", "aout", "août"),
+    ("september", "sept", "sep", "septiembre", "setiembre", "septembre"), ("october", "oct", "octubre", "octobre"),
+    ("november", "nov", "noviembre", "novembre"), ("december", "dec", "diciembre", "dic", "decembre", "décembre"),
+], 1) for name in names}
+_MON = "|".join(sorted(_MONTHS, key=len, reverse=True))
+DOB_ISO = re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b")
 DOB = re.compile(r"(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})")
+DOB_MONTH_FIRST = re.compile(rf"\b({_MON})\.?\s+(\d{{1,2}})(?:st|nd|rd|th)?,?\s+(\d{{4}}|\d{{2}})\b", re.I)
+DOB_DAY_FIRST = re.compile(rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\s+(?:de\s+|of\s+)?({_MON})\.?,?\s+(?:de\s+|del\s+)?(\d{{4}}|\d{{2}})\b", re.I)
+# Words around a name that are not the name: "my name is Jane Doe, born ..."
+_NOT_A_NAME = {"my", "name", "is", "im", "i'm", "i", "am", "and", "born", "dob", "birthday", "birthdate", "on", "date", "of",
+               "birth", "the", "was", "its", "it's", "it", "this", "hi", "hello", "mi", "nombre", "es", "soy", "me", "llamo",
+               "naci", "nací", "nacido", "nacida", "el", "fecha", "de", "nacimiento", "y", "hola"}
+
+
+def _find_dob(text: str) -> tuple[int, int, int, int] | None:
+    """Where the date starts in the text, then month, day, year. None if no date is found."""
+    m = DOB_ISO.search(text)
+    if m:
+        return m.start(), int(m.group(2)), int(m.group(3)), int(m.group(1))
+    m = DOB.search(text)
+    if m:
+        return m.start(), int(m.group(1)), int(m.group(2)), int(m.group(3))
+    m = DOB_MONTH_FIRST.search(text)
+    if m:
+        return m.start(), _MONTHS[m.group(1).lower()], int(m.group(2)), int(m.group(3))
+    m = DOB_DAY_FIRST.search(text)
+    if m:
+        return m.start(), _MONTHS[m.group(2).lower()], int(m.group(1)), int(m.group(3))
+    return None
 
 
 def _parse_identity(text: str) -> tuple[str, str, str] | None:
-    """'Jane Q Doe 3/14/1980' -> ('Jane', 'Doe', '03/14/1980'); None if it doesn't look right."""
-    m = DOB.search(text)
-    if not m:
+    """'Jane Q Doe 3/14/1980' or 'Jane Doe, October 14 1980' -> ('Jane', 'Doe', '03/14/1980').
+
+    None if it doesn't look right. Done with plain rules on purpose: a name and date of birth
+    are never sent to the AI.
+    """
+    found = _find_dob(text)
+    if not found:
         return None
-    names = re.findall(r"[A-Za-zÀ-ÿ'’-]+", text[:m.start()])
+    start, mo, d, y = found
+    names = [w for w in re.findall(r"[A-Za-zÀ-ÿ'’-]+", text[:start]) if w.lower() not in _NOT_A_NAME]
     if len(names) < 2:
         return None
-    mo, d, y = map(int, m.groups())
     today = dt.date.today()
     if y < 100:
         y += 1900 if y > today.year % 100 else 2000

@@ -114,6 +114,13 @@ demo3 = post("/dev/demo-patient"); K = demo3["phone"]
 r, _ = text(K, "when is my appointment"); show(r); check("my visit ends with 'Reply 2 to cancel, 3 to reschedule'", "Reply 2 to cancel" in r[-1]["body"])
 r, _ = text(K, "2"); show(r); check("cancelling is one digit", "cancelled" in r[-1]["body"])
 r, _ = text(K, "my visit"); show(r); check("then no upcoming visit", "no upcoming visit" in r[-1]["body"])
+demo4 = post("/dev/demo-patient"); J = demo4["phone"]
+text(J, "hi"); r, _ = text(J, "i want to cancell my apointment"); show(r)
+check("'i want to cancell my apointment' (typos) cancels", "cancelled" in r[-1]["body"])
+demo5 = post("/dev/demo-patient"); J2 = demo5["phone"]
+r, _ = text(J2, "can i change my appointment"); show(r); check("'change my appointment' offers new times", "Pick a new time" in " ".join(m["body"] for m in r))
+r, _ = text("+17405550183", "i want ot cncell my appointment"); show(r)
+check("cancel with no visit booked says so", "no upcoming visit" in r[-1]["body"])
 print("== Rides (Medicaid free rides, health worker books Uber Health)")
 check("a ride is offered after each booking", any(m["body"] == RIDE_OFFER for m in inbox(P1)))
 demo2 = post("/dev/demo-patient"); R = demo2["phone"]
