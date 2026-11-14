@@ -77,10 +77,19 @@ sort and summarise messages instead.
 
 ## Level 2: real phones with a Twilio trial (free, ~15 minutes)
 
+**Only one phone?** Your phone is the patient; the health worker stays on the laptop. Leave
+`CHW_NUMBERS=+17405550199` (a fictional 555-01xx number: those never go to Twilio) and add
+`DEV_SIMULATOR=1` to `.env`. Worker texts then appear on the simulator's worker phone, and you can
+answer there (`#1 …`) or from the dashboard. Every reply reaches your real phone over Twilio.
+Turn `DEV_SIMULATOR` off again before a public demo: while it is on, anyone who finds the address
+can post fake texts to `/dev/text`.
+
+**Two phones?** Put the second phone's number in `CHW_NUMBERS` and it gets the worker texts for real.
+
 1. Sign up at twilio.com and get a trial phone number (pick a 740 area code if offered).
 2. Verify every phone that will take part. Trial accounts can only text verified numbers.
 3. In `.env`: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `CLINIC_NUMBER` (the Twilio number),
-   `CHW_NUMBERS` (the phone playing the health worker).
+   `CHW_NUMBERS` (the phone playing the health worker, or leave the fictional one, see above).
 4. Public address: `ngrok http 8790`, then set `PUBLIC_BASE_URL` to the ngrok https URL.
 5. Restart the server. Twilio console → Phone Numbers → your number → Messaging: "A message comes
    in" → Webhook, `POST https://<ngrok-url>/sms/inbound`.
