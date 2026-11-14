@@ -23,7 +23,8 @@ def inbox(p): return [m for m in get(B + "/dev/phone/" + urllib.parse.quote(p)) 
 
 
 def text(p, body):
-    n = len(inbox(p)); post(B + "/dev/text", {"from_phone": p, "body": body}); new = inbox(p)[n:]
+    n = len(inbox(p)); post(B + "/dev/text", {"from_phone": p, "body": body})
+    new = [m for m in inbox(p)[n:] if m["body"] != "Need a ride to your visit? Reply RIDE."]  # the ride offer after booking
     for m in new: print("      > " + m["body"].replace("\n", " / "))
     return new
 

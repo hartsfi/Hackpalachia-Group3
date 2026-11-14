@@ -68,6 +68,16 @@ TEXT = {
                         "ZIP code or town.",
         "welcome": "CareLine health line: replies to your texts, visit bookings and reminders. "
                    "Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
+        "ride_offer": "Need a ride to your visit? Reply RIDE.",
+        "ride_medicaid": "Medicaid covers free rides to medical visits: call the number on your plan card, or "
+                         "Ohio Medicaid at 1-800-324-8680.",
+        "ride_ask": "Reply 1 and a health worker will book a ride for you, or 0 for no ride.",
+        "ride_ask_or": "Or reply 1 and a health worker will book a ride for you. Reply 0 for no ride.",
+        "ride_pickup": "What address should the driver pick you up at? Street and town, like 12 Main St, "
+                       "Nelsonville.",
+        "ride_pickup_again": "Please send the street address and town for pickup, like 12 Main St, Nelsonville.",
+        "ride_ok": "Got it. A health worker will book your ride and text you the pickup time.",
+        "ride_none": "OK, no ride. Text RIDE any time if you need one.",
         "where_med": "To find a pharmacy near you, what is your ZIP code or town?",
         "where_need": "Got it. What is your ZIP code or town, so we can find care near you?",
         "welcome_back_visit": "Welcome back {first}! Your next visit: {when}, {short}. Text what you need, or "
@@ -136,6 +146,15 @@ TEXT = {
                         "necesita y su codigo postal.",
         "welcome": "Linea de salud CareLine: respuestas, citas y recordatorios. Pueden aplicar "
                    "tarifas de mensajes y datos. HELP para ayuda, STOP para salir.",
+        "ride_offer": "¿Necesita transporte a su cita? Responda RIDE.",
+        "ride_medicaid": "Medicaid cubre viajes gratis a citas medicas: llame al numero de su tarjeta del plan, "
+                         "o a Ohio Medicaid al 1-800-324-8680.",
+        "ride_ask": "Responda 1 y un trabajador de salud le reservara un viaje, o 0 si no lo necesita.",
+        "ride_ask_or": "O responda 1 y un trabajador de salud le reservara un viaje. Responda 0 si no lo necesita.",
+        "ride_pickup": "¿En que direccion le recoge el conductor? Calle y pueblo, asi: 12 Main St, Nelsonville.",
+        "ride_pickup_again": "Envie la calle y el pueblo para recogerle, asi: 12 Main St, Nelsonville.",
+        "ride_ok": "Listo. Un trabajador de salud reservara su viaje y le escribira la hora de recogida.",
+        "ride_none": "Bien, sin viaje. Escriba RIDE si lo necesita.",
         "where_med": "Para buscar una farmacia cerca, ¿cual es su codigo postal o pueblo?",
         "where_need": "Entendido. ¿Cual es su codigo postal o pueblo, para buscar atencion cerca?",
         "welcome_back_visit": "Bienvenido otra vez {first}! Su proxima cita: {when}, {short}. Escriba que "
@@ -253,6 +272,12 @@ def _from_patient(phone: str, body: str) -> None:
         _send_mobile_route(phone, case, body)
         return
 
+    if word in RIDE_WORDS:
+        case = case or db.get_case(_ensure_case(phone, body))
+        db.add_message(case["id"], "patient", phone, config.CLINIC_NUMBER, body, "inbound")
+        _start_ride(case)
+        return
+
     if MY_VISIT.search(word):
         _send_my_visit(phone, case, body)
         return
@@ -283,6 +308,10 @@ def _from_patient(phone: str, body: str) -> None:
         _on_slot(case, word)
     elif stage == "ask_identity":
         _on_identity(case, body)
+    elif stage == "ask_ride":
+        _on_ride(case, word)
+    elif stage == "ask_pickup":
+        _on_pickup(case, body)
     elif stage == "ask_med":
         _on_med(case, word, body)
     elif stage == "ask_callhelp":
@@ -295,6 +324,64 @@ MY_VISIT = re.compile(
     r"^(my |next |my next )?(visit|appointment|appt|booking)s?\W*$|"
     r"\b(when|what time|where)\b.*\b(my|the)\b.*\b(appointment|appt|visit|booking)\b|"
     r"\b(do i have|have i got)\b.*\b(appointment|appt|visit)\b|^cita$|^mi cita\W*$", re.I)
+
+
+RIDE_WORDS = {"ride", "a ride", "need a ride", "i need a ride", "transport", "transportation", "viaje", "transporte"}
+
+
+def _ensure_case(phone: str, body: str) -> int:
+    """An open case to hang a ride request on, for someone texting RIDE between conversations."""
+    case_id = db.create_case(phone, {"category": "transportation", "urgency": "medium",
+                                     "summary": "Needs a ride", "language": "en"})
+    return case_id
+
+
+def _start_ride(case) -> None:
+    """Medicaid's free rides if they may qualify, then offer a health worker to book (Uber Health)."""
+    phone, lang = case["patient_phone"], case["language"]
+    patient = db.get_patient(phone)
+    medicaid = (patient and patient["income"] == "low") or case["income"] == "low"
+    db.update_case(case["id"], stage="ask_ride")
+    if medicaid:
+        sms.send(phone, _t(lang, "ride_medicaid"), case["id"], "system")
+    sms.send(phone, _t(lang, "ride_ask_or" if medicaid else "ride_ask"), case["id"], "system")
+
+
+def _on_ride(case, word: str) -> None:
+    phone, lang = case["patient_phone"], case["language"]
+    if word in YES:
+        db.update_case(case["id"], stage="ask_pickup")
+        sms.send(phone, _t(lang, "ride_pickup"), case["id"], "system")
+    elif word in ("0", "no", "n", "none"):
+        db.update_case(case["id"], stage="booked" if db.active_booking(phone) else "done")
+        sms.send(phone, _t(lang, "ride_none"), case["id"], "system")
+    else:
+        sms.send(phone, _t(lang, "ride_ask"), case["id"], "system")
+
+
+ADDRESS = re.compile(r"\d+\s+\w+.*[a-zA-Z]{2,}")
+
+
+def _on_pickup(case, body: str) -> None:
+    phone, lang = case["patient_phone"], case["language"]
+    if not ADDRESS.search(body) or len(body.strip()) < 8:
+        sms.send(phone, _t(lang, "ride_pickup_again"), case["id"], "system")
+        return
+    b = db.active_booking(phone)
+    if b:
+        f = _visit_fields(b["service_id"], b["start_ts"])
+        dest, when, ts = f"{f['short']}, {f['address']}, {f['town']}", f["when"], b["start_ts"]
+    else:
+        dest, when, ts = "no visit booked yet", "", None
+    db.add_ride(case["id"], phone, body.strip()[:200], dest, ts)
+    db.update_case(case["id"], stage="booked" if b else "done")
+    sms.send(phone, _t(lang, "ride_ok"), case["id"], "system")
+    patient = db.get_patient(phone)
+    who = " ".join(x for x in (patient["first_name"], patient["last_name"]) if x) if patient else ""
+    code = db.patient_code(patient["id"]) if patient else ""
+    _notify_chws(case, f"[#{case['id']}] RIDE request: {who or _tail(phone)} {code}. Pickup: {body.strip()[:80]}. "
+                       f"To: {dest}{' for ' + when if when else ''}. Book it in Uber Health, then text "
+                       f"#{case['id']} the pickup time.")
 
 
 def _send_my_visit(phone: str, case, body: str) -> None:
@@ -356,6 +443,9 @@ def _continue_after_hello(case, patient) -> None:
         sms.send(phone, _t(lang, "welcome_back_visit", first=first[:15],
                            **_visit_fields(booking["service_id"], booking["start_ts"])), case["id"], "system")
         return
+    if case["category"] == "transportation":  # a ride: no town needed, straight to the ride options
+        _start_ride(case)
+        return
     place = services.find_place(case["zip"]) if case["zip"] else None
     if not place and case["category"] != "other" and patient and patient["zip"]:
         place = services.find_place(patient["zip"])  # their saved town, so we don't ask again
@@ -410,7 +500,9 @@ def _send_my_id(phone: str, case) -> None:
 
 def _after_place(case, place: dict) -> None:
     """Place is known. Low on medicine: nearest pharmacies first. Otherwise: the income question."""
-    if case["category"] == "medication":
+    if case["category"] == "transportation":
+        _start_ride(case)
+    elif case["category"] == "medication":
         _offer_pharmacies(case, place)
     else:
         _ask_income(case, place)
@@ -620,6 +712,7 @@ def _book_pick(case, pick: dict) -> None:
         sms.send(phone, _t(lang, "booked", **fields), case["id"], "system")
         note = "booked"
     db.update_case(case["id"], stage="booked", offers=None, resched_id=None, pick=None)
+    sms.send(phone, _t(lang, "ride_offer"), case["id"], "system")
     _notify_chws(case, f"[#{case['id']}] {note} {fields['short']} {fields['when']} "
                        f"({case['income']} income, {case['zip']})" + (f" athena appt {ext}" if ext else ""))
 

@@ -94,8 +94,8 @@ async function loadCase() {
   if (!selected) return;
   const r = await fetch("/api/cases/" + selected);
   if (!r.ok) return;
-  const { case: c, messages, bookings, patient } = await r.json();
-  const key = JSON.stringify([c.status, c.assigned_chw, messages.length, bookings.map(b => b.status)]);
+  const { case: c, messages, bookings, patient, rides = [] } = await r.json();
+  const key = JSON.stringify([c.status, c.assigned_chw, messages.length, bookings.map(b => b.status), rides.map(x => x.status)]);
   if (key === lastThread) return;
   lastThread = key;
   const thread = messages.filter(m => !(m.sender === "system" && m.to_phone !== c.patient_phone));
@@ -106,6 +106,7 @@ async function loadCase() {
       <span class="cat">${esc(c.category.replace("_", " "))} · ${c.status}${c.assigned_chw ? " · worker " + esc(c.assigned_chw) : " · unclaimed"}</span>
       <div class="sum">${esc(c.summary)}</div>
       <div class="sum">${c.town ? "Location: " + esc(c.town) + " " + esc(c.zip) : "Location: not given yet"}${c.income ? " · income: " + (c.income === "low" ? "low / Medicaid / uninsured" : "other insurance or can pay") : ""}</div>
+      ${rides.map(rd => `<div class="sum"><b>Ride ${rd.status === "booked" ? "booked" : "requested"}:</b> from ${esc(rd.pickup)} to ${esc(rd.destination)}${rd.when ? " for " + esc(rd.when) : ""}${rd.status === "booked" ? "" : ` <button class="ghost" style="float:none;padding:2px 8px;font-size:12px" onclick="rideBooked(${rd.id})">Mark booked</button>`}</div>`).join("")}
       ${bookings.map(b => `<div class="sum"><b>${b.status === "booked" ? "Visit booked" : "Cancelled"}:</b> ${esc(b.clinic)}, ${esc(b.when)}</div>`).join("")}</div>
     <div id="thread">${bubbles(thread)}</div>
     ${c.status === "open" ? '<form id="f"><textarea id="t" placeholder="Text Message · SMS" aria-label="Text the patient"></textarea><button aria-label="Send"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 12V2M2.5 6.5 7 2l4.5 4.5"/></svg></button></form>' : ""}`;
@@ -121,6 +122,7 @@ async function loadCase() {
   if ($("#close")) $("#close").onclick = async () => { await fetch(`/api/cases/${c.id}/close`, {method:"POST"}); lastThread = ""; loadCase(); loadList(); };
 }
 
+async function rideBooked(id) { await fetch(`/api/rides/${id}/booked`, {method: "POST"}); lastThread = ""; loadCase(); }
 $("#filter").onchange = loadList;
 loadList(); setInterval(() => { loadList(); loadCase(); }, 2000);
 </script>

@@ -24,6 +24,13 @@ for an emergency refill, and offers 1 = a doctor visit for a new prescription, 2
 call. The health worker is told. `PHARMACY` or `PHARMACY 45764` lists pharmacies any time. The
 registry has no hours, so people are told to call first.
 
+**Rides.** After each booking CareLine offers a ride (`RIDE`); "I need a ride" starts the same
+flow. Patients who said low income / Medicaid are first told that Medicaid covers free rides to
+medical visits (plan card number, or the Ohio Medicaid Consumer Hotline 1-800-324-8680). Replying 1
+asks for a pickup address and creates a ride request (pickup, clinic, visit time) on the dashboard
+for a health worker to book in Uber Health, which texts or calls the patient (no app or smartphone
+needed). Connecting the Uber Health API directly needs an Uber Health organization account.
+
 **Returning patients.** Someone with an account is greeted with their next visit, their saved town
 is used instead of asking again, and "when is my appointment" / `MY VISIT` replies with date, time,
 place and phone. In the simulator, **Existing patient** loads such a patient (Sam Miller,
@@ -82,12 +89,13 @@ uv run uvicorn app.main:app --reload --port 8790
 | `#12 close`     | Closes case 12                         |
 | `LIST`          | Lists open cases                       |
 
-Patients can text `MY VISIT`, `PHARMACY`, `MOBILE`, `MY ID`, `CANCEL VISIT`, `RESCHEDULE`, `HELP`, `STOP` and `START`.
+Patients can text `RIDE`, `MY VISIT`, `PHARMACY`, `MOBILE`, `MY ID`, `CANCEL VISIT`, `RESCHEDULE`, `HELP`, `STOP` and `START`.
 
 ## Connect real phones
 
-**Today, no registration:** an Android phone as the clinic number with SMS Gateway for Android, see
-"Real SMS today with an Android phone" in [TESTING.md](TESTING.md).
+**Today, no registration:** this Mac's Messages app with your iPhone's own number
+(`SMS_PROVIDER=mac`), see "Real SMS today from this Mac" in [TESTING.md](TESTING.md). Or an Android
+phone as the clinic number with SMS Gateway for Android, see "Real SMS today with an Android phone".
 
 **Twilio** (toll-free or 10DLC number, needs carrier registration, takes days):
 

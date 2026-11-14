@@ -127,6 +127,37 @@ start the fake on 8796 and the server on 8797 with a fresh `DB_PATH`, then
 
 The Preview sandbox is shared test data: never use real patient names or birthdays there.
 
+## Real SMS today from this Mac with your iPhone's number (no registration, 5 minutes)
+
+The Mac's Messages app sends and receives with the iPhone's own number, so no Twilio, Android
+phone or carrier registration is needed. Patients text the iPhone's normal number. You need a
+second phone (any kind) to play the patient.
+
+1. **iPhone:** Settings → Messages → **Text Message Forwarding** → switch on this Mac. Keep the
+   iPhone on, with signal, signed in to the same Apple ID.
+2. **Mac:** System Settings → Privacy & Security → **Full Disk Access** → switch on the app that
+   runs the server (Terminal, iTerm or Claude; add it with + if missing), then quit and reopen it.
+   This lets the server read incoming texts. The first send asks to let it control Messages: OK.
+3. **`.env`** in `sms/`:
+   ```
+   SMS_PROVIDER=mac
+   CLINIC_NUMBER=<the iPhone's own number, e.g. +17405551234>
+   # Strongly suggested: only these numbers get CareLine replies, so friends and family
+   # texting your personal number are left alone. Blank = everyone who texts the iPhone.
+   MAC_ALLOWED_SENDERS=+1<the patient test phone>
+   ```
+4. Check, then start the server:
+   ```bash
+   uv run python -m tools.mac_check +1<the patient test phone>   # reads Messages + sends a test text
+   uv run uvicorn app.main:app --port 8790
+   ```
+5. From the other phone, text `hi` to the iPhone's number. CareLine answers within a few seconds,
+   from the iPhone's number. `/health` shows `"sms": "mac"`.
+
+No tunnel or webhook is needed: the server reads new texts from the Messages database every
+2 seconds, starting from the newest one, so old conversations are never answered. The Mac must
+stay awake with Messages signed in.
+
 ## Real SMS today with an Android phone (no carrier registration)
 
 An Android phone with a SIM becomes the clinic number, using the free open-source app

@@ -1,4 +1,4 @@
-"""Outbound texts. Goes through Twilio when keys are set, otherwise only
+"""Outbound texts. Goes through Twilio, an Android phone or this Mac's Messages app when set up, otherwise only
 recorded in the database so the dev phone simulator can show it."""
 import logging
 import re
@@ -58,7 +58,11 @@ def send(to: str, body: str, case_id: int | None, sender: str) -> None:
     sid, channel = None, "dev"
     if config.SMS_ENABLED and not is_fictional(to):
         try:
-            if config.SMS_PROVIDER == "android":
+            if config.SMS_PROVIDER == "mac":
+                from . import mac_messages
+
+                sid, channel = mac_messages.send(to, body), "mac"
+            elif config.SMS_PROVIDER == "android":
                 sid, channel = _android_send(to, body), "android"
             else:
                 sid, channel = _twilio().messages.create(to=to, from_=config.CLINIC_NUMBER, body=body).sid, "twilio"

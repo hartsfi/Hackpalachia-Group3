@@ -12,9 +12,12 @@ def post(path, data=None):
     return json.load(urllib.request.urlopen(req))
 def get(path): return json.load(urllib.request.urlopen(B + path))
 def inbox(phone): return [m for m in get("/dev/phone/" + urllib.parse.quote(phone)) if m["to_phone"] == phone]
+RIDE_OFFER = "Need a ride to your visit? Reply RIDE."
 def text(phone, body):
     n = len(inbox(phone)); t = time.time(); post("/dev/text", {"from_phone": phone, "body": body})
-    new = inbox(phone)[n:]; return new, time.time() - t
+    new = inbox(phone)[n:]
+    # The ride offer after a booking is checked on its own below; the flow checks look past it.
+    return [m for m in new if m["body"] != RIDE_OFFER], time.time() - t
 ok = True
 def check(name, cond, detail=""):
     global ok; ok &= bool(cond); print(("PASS " if cond else "FAIL ") + name + (f"  [{detail}]" if detail else ""))
@@ -107,6 +110,23 @@ r, _ = text(D, "when is my appointment"); show(r)
 check("'when is my appointment' gives date, time, place and phone", r[-1]["body"].startswith("Your next visit:") and "Call 740-" in r[-1]["body"])
 r, _ = text(D, "i need my meds refilled"); show(r)
 check("uses their saved town, no ZIP question", any(m["body"].startswith("Pharmacies near you") and "Nelsonville" in m["body"] for m in r))
+print("== Rides (Medicaid free rides, health worker books Uber Health)")
+check("a ride is offered after each booking", any(m["body"] == RIDE_OFFER for m in inbox(P1)))
+demo2 = post("/dev/demo-patient"); R = demo2["phone"]
+text(R, "hi"); r, _ = text(R, "RIDE"); show(r)
+check("RIDE: Medicaid free-ride number for a low-income patient", any("1-800-324-8680" in m["body"] for m in r))
+check("RIDE: offer a health worker to book", "health worker will book a ride" in r[-1]["body"])
+r, _ = text(R, "1"); show(r); check("asks the pickup address", "pick you up" in r[-1]["body"])
+r, _ = text(R, "near the school"); show(r); check("an unclear address is asked again", "street address" in r[-1]["body"])
+r, _ = text(R, "12 Main St, Nelsonville"); show(r); check("ride request confirmed", "book your ride" in r[-1]["body"])
+wk = [m["body"] for m in get("/dev/phone/" + urllib.parse.quote(W)) if m["to_phone"] == W]
+check("health worker gets pickup, destination and visit time", any("RIDE request: Sam Miller" in b and "Pickup: 12 Main St" in b and "To: " in b and "Uber Health" in b for b in wk))
+rc = [c for c in get("/api/cases") if c["patient_phone"] == R][0]
+check("ride request shown on the dashboard case", get(f"/api/cases/{rc['id']}")["rides"][0]["status"] == "requested")
+V = "+17405550176"
+text(V, "I need a ride to my doctor appointment"); r, _ = text(V, "Pat Lee"); show(r)
+check("'I need a ride' goes straight to ride options after sign-up", "health worker will book a ride" in r[-1]["body"])
+r, _ = text(V, "0"); show(r); check("0 = no ride", "no ride" in r[-1]["body"].lower())
 print("== Reminder")
 case1 = [c for c in get("/api/cases") if c["patient_phone"] == P1][0]
 bk = [x for x in get(f"/api/cases/{case1['id']}")["bookings"] if x["status"] == "booked"][0]

@@ -4,6 +4,7 @@ import hmac
 import json
 import logging
 import secrets
+import sqlite3
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -36,11 +37,41 @@ async def _reminder_loop():
         await asyncio.sleep(60)
 
 
+async def _mac_inbox_loop():
+    """SMS_PROVIDER=mac: pick up new texts from the Messages database every 2 seconds.
+    Starts at the newest message, so old conversations are never replayed."""
+    from . import mac_messages
+
+    last, warned = None, False
+    while True:
+        try:
+            if last is None:
+                last = await run_in_threadpool(mac_messages.latest_rowid)
+                log.info("reading incoming texts from Messages (after message %d)", last)
+            for rowid, sender, text in await run_in_threadpool(mac_messages.new_messages, last):
+                last = rowid
+                phone = sms_mod.normalize(sender)
+                if text and mac_messages.allowed(phone):
+                    await run_in_threadpool(relay.handle_incoming, phone, text)
+        except sqlite3.OperationalError as e:
+            if not warned:
+                log.error("cannot read %s (%s): give the app running this server Full Disk Access "
+                          "(System Settings > Privacy & Security > Full Disk Access), then restart it",
+                          config.MAC_MESSAGES_DB, e)
+                warned = True
+        except Exception:
+            log.exception("Messages inbox check failed")
+        await asyncio.sleep(2)
+
+
 @asynccontextmanager
 async def lifespan(_app):
-    task = asyncio.create_task(_reminder_loop())
+    tasks = [asyncio.create_task(_reminder_loop())]
+    if config.SMS_ENABLED and config.SMS_PROVIDER == "mac":
+        tasks.append(asyncio.create_task(_mac_inbox_loop()))
     yield
-    task.cancel()
+    for task in tasks:
+        task.cancel()
 
 
 app = FastAPI(title="CareLine", lifespan=lifespan)
@@ -131,13 +162,22 @@ def api_case(case_id: int):
     pt = db.get_patient(case["patient_phone"])
     patient = {"code": db.patient_code(pt["id"]), "first_name": pt["first_name"], "last_name": pt["last_name"],
                "since": pt["created_at"]} if pt else None
-    return {"case": dict(case), "messages": db.case_messages(case_id), "bookings": bookings, "patient": patient}
+    rides = [{**r, "when": services.when(r["visit_ts"]) if r["visit_ts"] else ""} for r in db.case_rides(case_id)]
+    return {"case": dict(case), "messages": db.case_messages(case_id), "bookings": bookings, "patient": patient,
+            "rides": rides}
 
 
 @app.post("/api/cases/{case_id}/reply", dependencies=[Depends(staff)])
 def api_reply(case_id: int, reply: Reply):
     if not relay.reply_from_dashboard(case_id, reply.body):
         raise HTTPException(400, "case not open or empty message")
+    return {"ok": True}
+
+
+@app.post("/api/rides/{ride_id}/booked", dependencies=[Depends(staff)])
+def api_ride_booked(ride_id: int):
+    """The health worker booked this ride (e.g. in Uber Health's dashboard)."""
+    db.set_ride_status(ride_id, "booked")
     return {"ok": True}
 
 

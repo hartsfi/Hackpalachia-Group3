@@ -42,7 +42,8 @@ def text(phone, body):
         db.update_patient(phone, first_name="Test", last_name="Patient")
     before = len(db.phone_messages(phone))
     relay.handle_incoming(phone, body)
-    new = [m["body"] for m in db.phone_messages(phone)[before:] if m["to_phone"] == phone]
+    new = [m["body"] for m in db.phone_messages(phone)[before:]
+           if m["to_phone"] == phone and m["body"] != "Need a ride to your visit? Reply RIDE."]  # ride offer after booking
     for m in new:
         print("      > " + m.replace("\n", " / "))
     return new

@@ -53,6 +53,17 @@ CREATE TABLE IF NOT EXISTS patients (
   created_at REAL,
   last_seen REAL
 );
+-- Ride requests a health worker books (e.g. in Uber Health's dashboard) for a patient.
+CREATE TABLE IF NOT EXISTS rides (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id INTEGER REFERENCES cases(id),
+  patient_phone TEXT NOT NULL,
+  pickup TEXT,
+  destination TEXT,
+  visit_ts REAL,
+  status TEXT NOT NULL DEFAULT 'requested',   -- requested | booked | cancelled
+  created_at REAL
+);
 -- athenahealth patient id per phone, so the name/date-of-birth question is asked only once.
 CREATE TABLE IF NOT EXISTS athena_patients (phone TEXT PRIMARY KEY, patient_id TEXT, created_at REAL);
 CREATE INDEX IF NOT EXISTS idx_cases_phone ON cases(patient_phone, status);
@@ -298,3 +309,20 @@ def update_patient(phone: str, **fields) -> None:
     cols = ", ".join(f"{k}=?" for k in fields)
     with connect() as c:
         c.execute(f"UPDATE patients SET {cols} WHERE phone=?", (*fields.values(), phone))
+
+
+# ---------------------------------------------------------------- rides
+def add_ride(case_id, phone: str, pickup: str, destination: str, visit_ts) -> int:
+    with connect() as c:
+        return c.execute("INSERT INTO rides(case_id, patient_phone, pickup, destination, visit_ts, created_at)"
+                         " VALUES (?,?,?,?,?,?)", (case_id, phone, pickup, destination, visit_ts, now())).lastrowid
+
+
+def case_rides(case_id: int):
+    with connect() as c:
+        return [dict(r) for r in c.execute("SELECT * FROM rides WHERE case_id=? ORDER BY id", (case_id,)).fetchall()]
+
+
+def set_ride_status(ride_id: int, status: str) -> None:
+    with connect() as c:
+        c.execute("UPDATE rides SET status=? WHERE id=?", (status, ride_id))

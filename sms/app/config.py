@@ -1,4 +1,5 @@
 import os
+import sys
 
 from dotenv import load_dotenv
 
@@ -48,8 +49,15 @@ ANDROID_GATEWAY_PASSWORD = os.getenv("ANDROID_GATEWAY_PASSWORD", "").strip()
 ANDROID_SIGNING_KEY = os.getenv("ANDROID_SIGNING_KEY", "").strip()  # app: Settings > Webhooks > Signing Key
 ANDROID_ENABLED = bool(ANDROID_GATEWAY_USER and ANDROID_GATEWAY_PASSWORD)
 
-# Which service sends texts: "android" or "twilio". Default: Android if set up, else Twilio.
+# Messages app on this Mac: texts go out from the linked iPhone's own number (SMS_PROVIDER=mac).
+MAC_ENABLED = sys.platform == "darwin"
+MAC_MESSAGES_DB = os.path.expanduser(os.getenv("MAC_MESSAGES_DB", "~/Library/Messages/chat.db").strip())
+# Only these numbers (plus CHW_NUMBERS) get CareLine replies; blank = anyone who texts the iPhone.
+MAC_ALLOWED_SENDERS = _list("MAC_ALLOWED_SENDERS")
+
+# Which service sends texts: "mac", "android" or "twilio". Default: Android if set up, else Twilio.
 SMS_PROVIDER = os.getenv("SMS_PROVIDER", "").strip().lower() or (
     "android" if ANDROID_ENABLED else "twilio" if TWILIO_ENABLED else "dev")
-SMS_ENABLED = (SMS_PROVIDER == "android" and ANDROID_ENABLED) or (SMS_PROVIDER == "twilio" and TWILIO_ENABLED)
+SMS_ENABLED = ((SMS_PROVIDER == "android" and ANDROID_ENABLED) or (SMS_PROVIDER == "twilio" and TWILIO_ENABLED)
+               or (SMS_PROVIDER == "mac" and MAC_ENABLED))
 DEV_SIMULATOR = (not SMS_ENABLED) or os.getenv("DEV_SIMULATOR", "") == "1"
