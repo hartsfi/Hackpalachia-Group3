@@ -42,6 +42,8 @@ EMERGENCY_WORDS = re.compile(
     r"convulsion|convulsión|matarme|quitarme la vida",
     re.I,
 )
+# Chest pain on its own: still 911 first, but with the warning signs and a way to a person if mild.
+CHEST_WORDS = re.compile(r"chest (pain|hurts?|is (hurting|tight)|tight(ness)?|pressure)|dolor de pecho", re.I)
 CRISIS_WORDS = re.compile(
     r"suicid|kill myself|end my life|want to die|hurt myself|"
     r"(don[’']?t|do not|no) see (the|any) point|no reason to live|better off without me|"

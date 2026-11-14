@@ -23,7 +23,7 @@ import re
 import time
 
 from . import agent, athena, config, db, services, sms, understand
-from .triage import CRISIS_WORDS, EMERGENCY_WORDS, triage
+from .triage import CHEST_WORDS, CRISIS_WORDS, EMERGENCY_WORDS, triage
 
 log = logging.getLogger("relay")
 
@@ -79,6 +79,9 @@ TEXT = {
                    "HELP for options.",
         "after_emergency": "A health worker has your message and will text you here. If it is an emergency or "
                            "gets worse, call 911 now.",
+        "chest": "Chest pain can be a heart attack. Call 911 if it's crushing, spreads to your arm or jaw, or "
+                 "you're sweaty or short of breath. Mild? Reply 1 for a health worker.",
+        "chest_mild": "OK. A health worker will text you soon to get you seen today. If it gets worse, call 911 now.",
         "ride_offer": "Need a ride to your visit? Reply RIDE.",
         "ride_medicaid": "Medicaid covers free rides to medical visits: call the number on your plan card, or "
                          "Ohio Medicaid at 1-800-324-8680.",
@@ -165,6 +168,10 @@ TEXT = {
                    "cita o HELP para opciones.",
         "after_emergency": "Un trabajador de salud tiene su mensaje y le escribira aqui. Si es una emergencia o "
                            "empeora, llame al 911 ahora.",
+        "chest": "El dolor de pecho puede ser un infarto. Llame al 911 si es fuerte, se extiende al brazo o la "
+                 "mandibula, o tiene sudor o falta de aire. Si es leve, responda 1.",
+        "chest_mild": "Bien. Un trabajador de salud le escribira pronto para que lo vean hoy. Si empeora, llame "
+                      "al 911 ahora.",
         "ride_offer": "¿Necesita transporte a su cita? Responda RIDE.",
         "ride_medicaid": "Medicaid cubre viajes gratis a citas medicas: llame al numero de su tarjeta del plan, "
                          "o a Ohio Medicaid al 1-800-324-8680.",
@@ -347,11 +354,13 @@ def _from_patient(phone: str, body: str) -> None:
         _on_callhelp(case, word, body)
     elif _worker_talking(case):  # mid-conversation with a health worker: straight to them
         _notify_chws(case, f"[#{case_id}] {_tail(phone)}: {body}")
+    elif stage == "ask_chest":
+        _on_chest(case, word, body)
     elif case["urgency"] == "emergency":
         # After an emergency a person takes over: no bot answers, but never silence either.
         _notify_chws(case, f"[#{case_id} EMERGENCY] {_tail(phone)}: {body}")
         ack = _t(case["language"], "after_emergency")
-        if not any(m["body"] == ack for m in db.case_messages(case_id)):
+        if not any(m["body"] in (ack, _t(case["language"], "chest_mild")) for m in db.case_messages(case_id)):
             sms.send(phone, ack, case_id, "system")
     elif not agent.reply(case, body):  # a question of their own: the agent answers with tools
         _hand_off(case, body)
@@ -375,6 +384,19 @@ def _last_question(case) -> str | None:
         if m["to_phone"] == case["patient_phone"] and m["sender"] == "system":
             return m["body"]
     return None
+
+
+def _on_chest(case, word: str, body: str) -> None:
+    """After the chest-pain text: 1 = mild, a health worker gets them seen today. Anything else: a person."""
+    phone, lang = case["patient_phone"], case["language"]
+    db.update_case(case["id"], stage=None)
+    if word in YES:
+        sms.send(phone, _t(lang, "chest_mild"), case["id"], "system")
+        _notify_chws(case, f"[#{case['id']} CHEST PAIN, says mild] {_tail(phone)} wants to be seen today. "
+                           f"Call them now to check. Reply: #{case['id']} your message")
+        return
+    _notify_chws(case, f"[#{case['id']} EMERGENCY] {_tail(phone)}: {body}")
+    sms.send(phone, _t(lang, "after_emergency"), case["id"], "system")
 
 
 def _worker_talking(case) -> bool:
@@ -405,8 +427,11 @@ def _emergency(phone: str, body: str, case, tri: dict | None = None, logged: boo
     case_id = case["id"]
     if not logged:
         db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
-    db.update_case(case_id, urgency="emergency", stage=None)
-    key = "crisis" if CRISIS_WORDS.search(body) else "emergency"
+    # Chest pain alone gets the warning signs and a way to reach a person if it is mild (it is often
+    # heartburn), but still 911 first. With any other emergency sign it gets the plain 911 reply.
+    chest_only = bool(CHEST_WORDS.search(body)) and not EMERGENCY_WORDS.search(CHEST_WORDS.sub(" ", body))
+    db.update_case(case_id, urgency="emergency", stage="ask_chest" if chest_only else None)
+    key = "crisis" if CRISIS_WORDS.search(body) else "chest" if chest_only else "emergency"
     sms.send(phone, _t(case["language"], key), case_id, "system")
     _notify_chws(case, f"[#{case_id} EMERGENCY] {_tail(phone)}: {body}\nReply: #{case_id} your message")
 
