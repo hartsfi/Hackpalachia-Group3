@@ -23,6 +23,10 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").strip().rstrip("/
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b").strip()
 LLM_MODEL = os.getenv("LLM_MODEL", "claude-opus-5-5").strip()      # used when LLM_PROVIDER=anthropic
 LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "20"))                 # seconds, then keyword rules
+# Free-text answers to the booking questions (app/understand.py). On when there is a key;
+# FREE_TEXT=0 turns it off and the questions accept only exact answers, as before.
+UNDERSTAND_MODEL = os.getenv("UNDERSTAND_MODEL", "claude-haiku-5-5").strip()
+UNDERSTAND_ENABLED = bool(ANTHROPIC_API_KEY) and os.getenv("FREE_TEXT", "1").strip() != "0"
 
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "").strip()
 DB_PATH = os.getenv("DB_PATH", "textbridge.db")

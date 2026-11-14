@@ -92,12 +92,14 @@ def find_place(text: str) -> dict | None:
             if p["zip"] == z:
                 return p
     for p in sorted(pl, key=lambda p: -len(p["town"])):
+        if p.get("zip_only"):  # e.g. Ray, Shade, Friendship: too easily a normal word in a text
+            continue
         if re.search(r"\b" + re.escape(p["town"]) + r"\b", text, re.I):
             return p
     # Typos ("nelsonvile", "glouser"): close match on single words and word pairs, 5+ letters.
     words = re.findall(r"[a-z]+", text.lower())
     grams = words + [f"{a} {b}" for a, b in zip(words, words[1:])]
-    towns = {p["town"].lower(): p for p in pl}
+    towns = {p["town"].lower(): p for p in pl if not p.get("zip_only")}
     for g in grams:
         if len(g) >= 5:
             hit = difflib.get_close_matches(g, towns, n=1, cutoff=0.85)

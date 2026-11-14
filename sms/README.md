@@ -1,4 +1,4 @@
-# TextBridge
+# CareLine
 
 A text line that connects rural patients with community health workers. It works on any phone,
 flip phones included, so patients don't need home internet.
@@ -18,7 +18,7 @@ or sliding-scale clinics first. Clinics and towns live in `app/data/`.
 
 **Real vs sample data.** The mobile clinic route in `app/data/mobile_route.json` is real: the
 Heritage Community Clinic stops (Ohio University), copied from
-https://www.ohio.edu/medicine/community-health/community-clinic/primary-care on 2026-11-14. TextBridge
+https://www.ohio.edu/medicine/community-health/community-clinic/primary-care on 2026-11-14. CareLine
 cannot book those; picking one texts the real number (740-593-2432) and offers a health worker to
 call for the patient. Text `MOBILE` for the next stops. The other clinics in `app/data/services.json`
 are still made-up samples (names, addresses, 555 phones, hours) for showing the booking flow.
@@ -28,7 +28,7 @@ athenahealth and visits are booked, moved and cancelled there (see "athenahealth
 
 **Accounts.** Each phone number gets one account in the `patients` table, stored in the server's
 SQLite database (`textbridge.db`, kept across restarts). A new number is asked for a first and last
-name (or SKIP) and gets a TextBridge ID like `TB-1001`; a returning number is welcomed back by name.
+name (or SKIP) and gets a CareLine ID like `CL-1001`; a returning number is welcomed back by name.
 `MY ID` texts the ID back. The account remembers town, ZIP and insurance answer, and the dashboard
 shows the name and ID on each case. Emergencies are answered before any sign-up question.
 
@@ -38,6 +38,12 @@ machine. It picks out the need, urgency, place (typos included) and a one-line s
 health worker, in about a second. Claude (`LLM_PROVIDER=anthropic`) or keyword rules (`rules`) are
 alternatives; if the model is down, the rules answer. Emergency words always trigger 911/988, and
 the model can raise urgency but never lower it. Booking, clinics and times never come from the model.
+
+With `ANTHROPIC_API_KEY` set, patients can answer the booking questions in their own words: "im on
+medicaid" instead of `1`, "the tuesday one" instead of `2`, a misspelled town instead of a ZIP.
+Claude only picks which allowed answer was meant ([`app/understand.py`](app/understand.py)); every
+reply and every booking still comes from the scripted flow, and an unclear answer just gets the
+question asked again. Check it with `python -m tools.check_understand` (no key needed).
 
 Each new text is triaged by need (rides, medicine, appointments, food, housing, mental health, insurance, utilities) and urgency. Claude does this when
 `ANTHROPIC_API_KEY` is set, keyword rules otherwise. Emergency and crisis words always get an
@@ -52,7 +58,7 @@ cp .env.example .env
 uv run uvicorn app.main:app --reload --port 8790
 ```
 
-- Phone simulator: http://127.0.0.1:8790/simulator (a patient phone and a health worker phone side by side)
+- Phone simulator: http://127.0.0.1:8790/simulator (the patient's phone; add `?worker=1` to show a health worker phone beside it)
 - Dashboard: http://127.0.0.1:8790/dashboard
 
 ## Health worker text commands

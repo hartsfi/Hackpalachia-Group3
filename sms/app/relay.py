@@ -9,6 +9,8 @@ Patient booking conversation (case.stage):
   ask_slot    up to three numbered visits (name, distance, next time); reply a number
   ask_identity  athenahealth clinics only, once per phone: name + date of birth for the patient record
   booked / done / None   free texting with the health worker
+Replies in the patient's own words ("im on medicaid", "the tuesday one") are mapped to the exact
+answer by understand.py when Claude is on; the questions, replies and bookings stay scripted.
 Emergencies skip all of this: 911 / 988 first, CHWs alerted, no booking.
 Every text to a patient is kept within 160 GSM-7 characters (no links).
 """
@@ -17,7 +19,7 @@ import json
 import logging
 import re
 
-from . import athena, config, db, services, sms
+from . import athena, config, db, services, sms, understand
 from .triage import CRISIS_WORDS, EMERGENCY_WORDS, triage
 
 log = logging.getLogger("relay")
@@ -33,7 +35,7 @@ YES, NO = {"1", "yes", "y", "si", "sí"}, {"2", "no", "n"}
 
 TEXT = {
     "en": {
-        "start": "TextBridge: What do you need care for, and what is your ZIP code or town? "
+        "start": "CareLine: What do you need care for, and what is your ZIP code or town? "
                  "If this is an emergency, call 911.",
         "where_again": "Sorry, I could not find that place. Please send a 5-digit ZIP code or "
                        "town name, like 45701 or Nelsonville.",
@@ -60,24 +62,24 @@ TEXT = {
                      "worker now.",
         "crisis": "You are not alone. Call or text 988 any time to reach the Suicide & Crisis "
                   "Lifeline. If you are in danger now, call 911.",
-        "help": "TextBridge health line. Text what care you need and your ZIP to book. CANCEL "
+        "help": "CareLine health line. Text what care you need and your ZIP to book. CANCEL "
                 "VISIT or RESCHEDULE changes a visit. STOP to opt out. Emergency: 911",
-        "resubscribed": "You will get TextBridge texts again. Text what care you need and your "
+        "resubscribed": "You will get CareLine texts again. Text what care you need and your "
                         "ZIP code or town.",
-        "welcome": "TextBridge health line: replies to your texts, visit bookings and reminders. "
+        "welcome": "CareLine health line: replies to your texts, visit bookings and reminders. "
                    "Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
         "call_info": "Mobile clinic {when}, {where}, {town}. Free, ages 18-64. Call {phone} to book, "
                      "or reply 1 and we will call for you.",
         "callhelp_ok": "OK. A health worker will call the mobile clinic to book for you and text you here.",
         "mobile_list": "Free mobile clinic, ages 18-64. Call {phone} to book:",
         "mobile_none": "No mobile clinic stops are scheduled right now. Call {phone} for the next dates.",
-        "ask_name": "To set up your TextBridge account, reply with your first and last name (or SKIP).",
+        "ask_name": "To set up your CareLine account, reply with your first and last name (or SKIP).",
         "name_again": "Please reply with just your first and last name, like Jane Doe, or SKIP.",
-        "account": "Thanks {first}! Your TextBridge ID is {code}. Keep it for your visits.",
-        "account_noname": "OK. Your TextBridge ID is {code}. Keep it for your visits.",
+        "account": "Thanks {first}! Your CareLine ID is {code}. Keep it for your visits.",
+        "account_noname": "OK. Your CareLine ID is {code}. Keep it for your visits.",
         "welcome_back": "Welcome back {first}! What do you need care for, and what is your ZIP code or "
                         "town? If this is an emergency, call 911.",
-        "my_id": "Your TextBridge ID is {code}{name}.",
+        "my_id": "Your CareLine ID is {code}{name}.",
         "identity_dob": "To book at {short}, reply with your date of birth, like 03/14/1980",
         "identity": "To book at {short}, reply with your first and last name and date of birth, "
                     "like: Jane Doe 03/14/1980",
@@ -88,7 +90,7 @@ TEXT = {
     },
     # Spanish avoids á í ó ú so every text stays in the 160-character GSM-7 alphabet.
     "es": {
-        "start": "TextBridge: ¿Que atencion medica necesita, y cual es su codigo postal o "
+        "start": "CareLine: ¿Que atencion medica necesita, y cual es su codigo postal o "
                  "pueblo? Si es una emergencia, llame al 911.",
         "where_again": "No encontré ese lugar. Envie un codigo postal de 5 digitos o el nombre "
                        "del pueblo, como 45701 o Nelsonville.",
@@ -116,24 +118,24 @@ TEXT = {
                      "trabajador de salud.",
         "crisis": "No esta solo. Llame o escriba al 988 (oprima 2 para español). Si esta en "
                   "peligro ahora, llame al 911.",
-        "help": "TextBridge: escriba que atencion necesita y su codigo postal. CANCELAR CITA o "
+        "help": "CareLine: escriba que atencion necesita y su codigo postal. CANCELAR CITA o "
                 "CAMBIAR CITA. STOP para salir. Emergencia: 911",
-        "resubscribed": "Recibira mensajes de TextBridge otra vez. Escriba que atencion "
+        "resubscribed": "Recibira mensajes de CareLine otra vez. Escriba que atencion "
                         "necesita y su codigo postal.",
-        "welcome": "Linea de salud TextBridge: respuestas, citas y recordatorios. Pueden aplicar "
+        "welcome": "Linea de salud CareLine: respuestas, citas y recordatorios. Pueden aplicar "
                    "tarifas de mensajes y datos. HELP para ayuda, STOP para salir.",
         "call_info": "Clinica movil {when}, {where}, {town}. Gratis, 18-64 años. Llame al {phone} para "
                      "reservar, o responda 1 y le llamamos.",
         "callhelp_ok": "Bien. Un trabajador de salud llamara a la clinica movil para reservar y le escribira aqui.",
         "mobile_list": "Clinica movil gratis, 18-64 años. Llame al {phone}:",
         "mobile_none": "No hay paradas de la clinica movil ahora. Llame al {phone} para las proximas fechas.",
-        "ask_name": "Para crear su cuenta de TextBridge, responda con su nombre y apellido (o SKIP).",
+        "ask_name": "Para crear su cuenta de CareLine, responda con su nombre y apellido (o SKIP).",
         "name_again": "Responda solo con su nombre y apellido, como Ana Diaz, o SKIP.",
-        "account": "Gracias {first}! Su numero de TextBridge es {code}. Guardelo para sus citas.",
-        "account_noname": "Listo. Su numero de TextBridge es {code}. Guardelo para sus citas.",
+        "account": "Gracias {first}! Su numero de CareLine es {code}. Guardelo para sus citas.",
+        "account_noname": "Listo. Su numero de CareLine es {code}. Guardelo para sus citas.",
         "welcome_back": "Bienvenido otra vez {first}! ¿Que atencion necesita y cual es su codigo postal o "
                         "pueblo? Emergencia: 911.",
-        "my_id": "Su numero de TextBridge es {code}{name}.",
+        "my_id": "Su numero de CareLine es {code}{name}.",
         "identity_dob": "Para reservar en {short}, responda con su fecha de nacimiento, asi: 03/14/1980",
         "identity": "Para reservar en {short}, responda con su nombre, apellido y fecha de "
                     "nacimiento, asi: Ana Diaz 03/14/1980",
@@ -237,6 +239,8 @@ def _from_patient(phone: str, body: str) -> None:
 
     db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     stage = case["stage"]
+    # "im on medicaid", "the tuesday one": turned into the exact answer the question expects.
+    body, word = understand.answer(case, body, word)
     if stage == "ask_name":
         _on_name(case, body)
     elif stage == "ask_where":
@@ -260,7 +264,9 @@ def _is_free_text(word: str) -> bool:
 
 def _find_place(body: str, tri: dict | None) -> dict | None:
     """A ZIP or town typed in the text, else the place the LLM picked out of it."""
-    return services.find_place(body) or (services.find_place(tri["place"]) if tri and tri.get("place") else None)
+    return (services.find_place(body)
+            or (services.find_place(tri["place"]) if tri and tri.get("place") else None)
+            or understand.place(body))  # Claude, when a key is set (e.g. a misspelled town)
 
 
 def _new_case(phone: str, body: str, tri: dict) -> None:

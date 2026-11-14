@@ -12,10 +12,10 @@ cp .env.example .env        # first time only
 uv run uvicorn app.main:app --port 8790
 ```
 
-Open http://127.0.0.1:8790/simulator (patient phone on the left, health worker phone on the right)
-and http://127.0.0.1:8790/dashboard in another tab. Restart the server after pulling new code. Each page load (and the **New user** button) starts as a brand-new user with an
-unused fictional number, so you always see the sign-up; type a number into the box to continue as
-someone you used before.
+Open http://127.0.0.1:8790/simulator?worker=1 (patient phone on the left, health worker phone on the right; without `?worker=1` only the patient's phone is shown)
+and http://127.0.0.1:8790/dashboard in another tab. Restart the server after pulling new code. Each page load (and the **New patient**
+button) starts as a brand-new patient with an unused fictional number, so you always see the
+sign-up; type a number into the box to continue as someone you used before.
 To start over, stop the server and delete `sms/textbridge.db`.
 
 ### Booking a visit (user story 1)
@@ -23,7 +23,7 @@ To start over, stop the server and delete `sms/textbridge.db`.
 | # | Phone | Type | You should see |
 |---|-------|------|----------------|
 | 1 | Patient | `hi` | Welcome text, then "reply with your first and last name (or SKIP)" |
-| 1b | Patient | `Jane Doe` | "Thanks Jane! Your TextBridge ID is TB-1001", then "What do you need care for…" |
+| 1b | Patient | `Jane Doe` | "Thanks Jane! Your CareLine ID is CL-1001", then "What do you need care for…" |
 | 2 | Patient | `Columbus` | "Sorry, I could not find that place…" (asks again) |
 | 3 | Patient | `need a checkup, 45764` | "Got it: Nelsonville, OH 45764. Reply 1 if low income…" |
 | 4 | Patient | `1` | Up to 3 numbered visits: name, miles, next time. Mobile health unit first. |

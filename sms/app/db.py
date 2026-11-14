@@ -276,8 +276,8 @@ def save_athena_patient(phone: str, patient_id: str) -> None:
 
 # ---------------------------------------------------------------- patient accounts
 def patient_code(patient_id: int) -> str:
-    """Short ID a person can read out on the phone, e.g. TB-1001."""
-    return f"TB-{1000 + patient_id}"
+    """Short ID a person can read out on the phone, e.g. CL-1001."""
+    return f"CL-{1000 + patient_id}"
 
 
 def get_patient(phone: str):

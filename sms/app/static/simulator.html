@@ -2,65 +2,189 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TextBridge – Phone simulator</title>
+<title>CareLine – Phone simulator</title>
 <style>
-  body { margin:0; font:15px/1.4 system-ui,sans-serif; background:#e9ecf1; color:#1d2330; }
-  header { padding:12px 20px; background:#1d2330; color:#fff; display:flex; gap:16px; align-items:center; }
-  header a { color:#9cc7ea; } header h1 { font-size:16px; margin:0; flex:1; }
-  .phones { display:flex; gap:28px; justify-content:center; padding:24px; flex-wrap:wrap; }
-  .phone { width:340px; height:620px; background:#fff; border-radius:28px; box-shadow:0 6px 24px #0002; display:flex; flex-direction:column; overflow:hidden; border:8px solid #1d2330; }
-  .ph { padding:10px 14px; background:#f3f4f7; border-bottom:1px solid #dde1e8; }
-  .ph b { display:inline-block; margin-bottom:2px; }
-  .nu { float:right; font:inherit; font-size:12px; padding:2px 10px; border-radius:12px; border:1px solid #ccd2db; background:#fff; cursor:pointer; } .ph input { font:inherit; width:100%; margin-top:4px; padding:4px 6px; border:1px solid #ccd2db; border-radius:6px; }
-  .msgs { flex:1; overflow:auto; padding:12px; display:flex; flex-direction:column; gap:6px; }
-  .m { max-width:80%; padding:7px 11px; border-radius:16px; white-space:pre-wrap; font-size:14px; }
-  .in { align-self:flex-start; background:#e7e9ee; } .out { align-self:flex-end; background:#2f7cf6; color:#fff; }
-  form { display:flex; gap:6px; padding:8px; border-top:1px solid #dde1e8; }
-  form input { flex:1; font:inherit; padding:8px 12px; border-radius:18px; border:1px solid #ccd2db; }
-  form button { border:0; background:#2f7cf6; color:#fff; border-radius:18px; padding:0 14px; font:inherit; cursor:pointer; }
-  .note { text-align:center; color:#6b7383; font-size:13px; padding:0 20px 20px; }
+  :root { --s: 1; --green: #34c759; --gray: #e9e9eb; --ink: #000; --muted: #8e8e93; --blue: #007aff; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+         background: #f2f2f4; color: #1c1c1e; display: flex; flex-direction: column; }
+  .top { display: flex; gap: 14px; align-items: center; padding: 10px 20px; font-size: 13px; color: #6b6b70; flex-wrap: wrap; }
+  .top b { color: #1c1c1e; font-weight: 600; }
+  .top .sp { flex: 1; }
+  .top a { color: var(--blue); text-decoration: none; }
+  .top label { display: flex; gap: 6px; align-items: center; }
+  .top input { font: inherit; width: 132px; padding: 4px 8px; border: 1px solid #d1d1d6; border-radius: 8px; background: #fff; color: #1c1c1e; }
+  .top button { font: inherit; padding: 4px 10px; border: 1px solid #d1d1d6; border-radius: 8px; background: #fff; color: #1c1c1e; cursor: pointer; }
+  .stage { flex: 1; display: flex; gap: 40px; justify-content: center; align-items: flex-start; padding: 6px 20px 20px; flex-wrap: wrap; }
+
+  /* The phone is drawn at 390 x 844 (plus bezel) and scaled to fit the window. */
+  .fit { width: calc(414px * var(--s)); height: calc(868px * var(--s)); }
+  .device { width: 414px; height: 868px; transform: scale(var(--s)); transform-origin: top left;
+            background: #1a1a1c; border-radius: 62px; padding: 12px; box-shadow: 0 0 0 2px #3a3a3d, 0 24px 60px #0003; position: relative; }
+  .screen { width: 390px; height: 844px; background: #fff; border-radius: 50px; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+  .island { position: absolute; top: 11px; left: 50%; width: 124px; height: 36px; margin-left: -62px; background: #000; border-radius: 20px; z-index: 5; }
+
+  .status { height: 54px; padding: 18px 30px 0 34px; display: flex; justify-content: space-between; align-items: flex-start;
+            font-size: 17px; font-weight: 600; color: var(--ink); background: #f6f6f6; letter-spacing: -0.2px; }
+  .status .icons { display: flex; gap: 6px; align-items: center; padding-top: 3px; }
+  .bars { display: flex; gap: 2px; align-items: flex-end; height: 12px; }
+  .bars i { width: 3px; background: #000; border-radius: 1px; }
+  .bars i:nth-child(1) { height: 4px; } .bars i:nth-child(2) { height: 6px; } .bars i:nth-child(3) { height: 9px; opacity: .25; } .bars i:nth-child(4) { height: 12px; opacity: .25; }
+  .net { font-size: 14px; font-weight: 600; }
+  .batt { width: 25px; height: 12px; border: 1px solid #0006; border-radius: 4px; padding: 1px; position: relative; }
+  .batt::after { content: ""; position: absolute; right: -4px; top: 3px; width: 2px; height: 4px; background: #0006; border-radius: 0 1px 1px 0; }
+  .batt i { display: block; width: 72%; height: 100%; background: #000; border-radius: 2px; }
+
+  .nav { background: #f6f6f6; border-bottom: 1px solid #d8d8dc; padding: 2px 12px 8px; display: flex; align-items: center; }
+  .nav .back { color: var(--blue); font-size: 34px; line-height: 30px; width: 44px; font-weight: 300; }
+  .nav .who { flex: 1; text-align: center; }
+  .nav .avatar { width: 46px; height: 46px; margin: 0 auto 3px; border-radius: 50%; background: linear-gradient(#a6abb6, #878c98);
+                 color: #fff; font-size: 19px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .nav .name { font-size: 11px; color: var(--ink); }
+  .nav .name span { color: var(--muted); }
+  .nav .pad { width: 44px; }
+
+  .msgs { flex: 1; overflow-y: auto; padding: 8px 16px 10px; display: flex; flex-direction: column; background: #fff; scrollbar-width: none; }
+  .msgs::-webkit-scrollbar { display: none; }
+  .stamp { text-align: center; font-size: 11px; color: var(--muted); margin: 6px 0 10px; line-height: 1.35; }
+  .stamp b { font-weight: 600; }
+  .m { max-width: 76%; padding: 7px 13px; border-radius: 18px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 17px; line-height: 22px;
+       letter-spacing: -0.2px; margin-top: 2px; position: relative; }
+  .m.first { margin-top: 9px; }
+  .in { align-self: flex-start; background: var(--gray); color: var(--ink); }
+  .out { align-self: flex-end; background: var(--green); color: #fff; }
+  /* Bubble tails on the last bubble of each run, drawn the usual way with two overlapping curves. */
+  .m.last::before, .m.last::after { content: ""; position: absolute; bottom: 0; height: 18px; }
+  .out.last::before { right: -7px; width: 20px; background: var(--green); border-bottom-left-radius: 16px 14px; }
+  .out.last::after { right: -26px; width: 26px; background: #fff; border-bottom-left-radius: 10px; }
+  .in.last::before { left: -7px; width: 20px; background: var(--gray); border-bottom-right-radius: 16px 14px; }
+  .in.last::after { left: -26px; width: 26px; background: #fff; border-bottom-right-radius: 10px; }
+  .typing { display: flex; gap: 4px; padding: 13px 14px; }
+  .typing i { width: 8px; height: 8px; border-radius: 50%; background: #9a9aa0; animation: blink 1.2s infinite; }
+  .typing i:nth-child(2) { animation-delay: .2s; } .typing i:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 60%, 100% { opacity: .35; } 30% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .typing i { animation: none; } }
+
+  .compose { display: flex; gap: 10px; align-items: flex-end; padding: 6px 12px 6px; background: #fff; }
+  .plus { width: 34px; height: 34px; border-radius: 50%; background: #e9e9eb; color: #7c7c80; font-size: 24px; line-height: 32px; text-align: center; flex: none; font-weight: 300; }
+  .field { flex: 1; display: flex; align-items: center; border: 1px solid #c8c8cc; border-radius: 18px; padding: 0 4px 0 12px; min-height: 36px; }
+  .field input { flex: 1; border: 0; outline: 0; font: inherit; font-size: 17px; letter-spacing: -0.2px; background: transparent; color: var(--ink); min-width: 0; padding: 6px 0; }
+  .field input::placeholder { color: #c4c4c7; }
+  .send { width: 28px; height: 28px; border: 0; border-radius: 50%; background: var(--green); color: #fff; cursor: pointer; flex: none; padding: 0;
+          display: flex; align-items: center; justify-content: center; }
+  .send:disabled { background: #d1d1d6; cursor: default; }
+  .send svg { width: 14px; height: 14px; }
+  .home { height: 30px; display: flex; align-items: center; justify-content: center; background: #fff; }
+  .home i { width: 138px; height: 5px; border-radius: 3px; background: #000; }
 </style>
 </head>
 <body>
-<header><h1>Phone simulator (dev mode, no real texts are sent)</h1><a href="/dashboard" target="_blank">Open dashboard ↗</a></header>
-<div class="phones">
-  <div class="phone" id="patient"><div class="ph"><b>Patient's phone</b> <button type="button" id="newuser" class="nu">New user</button><input class="num" value=""></div><div class="msgs"></div><form><input placeholder="Text the clinic number…"><button>Send</button></form></div>
+<div class="top">
+  <b>CareLine simulator</b><span>No real texts are sent.</span><span class="sp"></span>
+  <label>Texting from <input id="num" value="" aria-label="Patient phone number"></label>
+  <button id="next" title="Switch to a new patient number, which starts a new conversation">New patient</button>
+  <a id="toggle" href="?worker=1">Show health worker phone</a>
+  <a href="/dashboard" target="_blank">Staff dashboard ↗</a>
 </div>
-<p class="note">This phone texts the clinic number <b id="clinic"></b>. Health workers answer from the <a href="/dashboard" target="_blank">dashboard</a>.</p>
+<div class="stage" id="stage"></div>
+
+<template id="phone">
+  <div class="fit"><div class="device"><div class="screen">
+    <div class="island"></div>
+    <div class="status"><span class="clock"></span><span class="icons"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="net">LTE</span><span class="batt"><i></i></span></span></div>
+    <div class="nav"><span class="back">‹</span><div class="who"><div class="avatar"></div><div class="name"></div></div><span class="pad"></span></div>
+    <div class="msgs" aria-live="polite"></div>
+    <form class="compose"><span class="plus">+</span>
+      <div class="field"><input placeholder="Text Message · SMS" autocomplete="off" aria-label="Message">
+        <button class="send" disabled aria-label="Send"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 12V2M2.5 6.5 7 2l4.5 4.5"/></svg></button>
+      </div></form>
+    <div class="home"><i></i></div>
+  </div></div></div>
+</template>
+
 <script>
 const esc = s => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
-const phones = ["patient"].map(id => {
-  const el = document.getElementById(id);
-  const p = { el, num: el.querySelector(".num"), box: el.querySelector(".msgs"), key: "" };
+const stage = document.getElementById("stage"), numInput = document.getElementById("num");
+const showWorker = new URLSearchParams(location.search).has("worker");
+const toggle = document.getElementById("toggle");
+if (showWorker) { toggle.textContent = "Hide health worker phone"; toggle.href = location.pathname; }
+
+function makePhone(getNumber, initials) {
+  const node = document.getElementById("phone").content.cloneNode(true);
+  const el = node.querySelector(".fit");
+  const p = { el, box: el.querySelector(".msgs"), name: el.querySelector(".name"), key: "", waiting: false, number: getNumber };
+  el.querySelector(".avatar").textContent = initials;
+  const input = el.querySelector(".field input"), send = el.querySelector(".send");
+  input.oninput = () => { send.disabled = !input.value.trim(); };
   el.querySelector("form").onsubmit = async e => {
-    e.preventDefault(); const inp = e.target.querySelector("input"); const body = inp.value.trim(); if (!body) return;
-    inp.value = "";
-    await fetch("/dev/text", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({from_phone:p.num.value.trim(), body})});
-    poll();
+    e.preventDefault();
+    const body = input.value.trim(); if (!body) return;
+    input.value = ""; send.disabled = true;
+    p.pending = body; p.waiting = true; p.key = ""; draw(p, p.last || []);
+    try {
+      await fetch("/dev/text", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({from_phone:p.number(), body})});
+    } finally { p.waiting = false; p.pending = null; p.key = ""; poll(); }
   };
-  p.num.onchange = () => { p.key = ""; poll(); };
+  stage.appendChild(node);
   return p;
-});
+}
+
+function stamp(ts) {
+  const d = new Date(ts * 1000), today = new Date().toDateString() === d.toDateString();
+  return `Text Message · SMS<br><b>${today ? "Today" : d.toLocaleDateString([], {weekday:"short", month:"short", day:"numeric"})}</b> ${d.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"})}`;
+}
+
+function draw(p, msgs) {
+  const num = p.number();
+  const rows = msgs.map(m => ({ out: m.from_phone === num, body: m.body }));
+  if (p.pending) rows.push({ out: true, body: p.pending });
+  let html = msgs.length ? `<div class="stamp">${stamp(msgs[0].created_at)}</div>` : (rows.length ? "" : `<div class="stamp">Text Message · SMS</div>`);
+  rows.forEach((r, i) => {
+    const first = i === 0 || rows[i - 1].out !== r.out, last = i === rows.length - 1 || rows[i + 1].out !== r.out;
+    html += `<div class="m ${r.out ? "out" : "in"}${first ? " first" : ""}${last ? " last" : ""}">${esc(r.body)}</div>`;
+  });
+  if (p.waiting) html += `<div class="m in first last typing"><i></i><i></i><i></i></div>`;
+  p.box.innerHTML = html;
+  p.box.scrollTop = 1e9;
+}
+
 async function poll() {
   for (const p of phones) {
-    const num = p.num.value.trim(); if (!num) continue;
+    const num = p.number(); if (!num || p.waiting) continue;
     const msgs = await (await fetch("/dev/phone/" + encodeURIComponent(num))).json();
-    const key = num + msgs.length; if (key === p.key) continue; p.key = key;
-    p.box.innerHTML = msgs.map(m => `<div class="m ${m.from_phone === num ? "out" : "in"}">${esc(m.body)}</div>`).join("");
-    p.box.scrollTop = 1e9;
+    const key = num + ":" + msgs.length; if (key === p.key) continue;
+    p.key = key; p.last = msgs; draw(p, msgs);
   }
 }
-async function newUser() {
-  const { phone } = await (await fetch("/dev/new-phone")).json();
-  phones[0].num.value = phone; phones[0].key = ""; phones[0].box.innerHTML = "";
-  poll();
+
+function fit() {
+  const s = Math.min(1, Math.max(0.5, (window.innerHeight - stage.getBoundingClientRect().top - 24) / 868));
+  document.documentElement.style.setProperty("--s", s.toFixed(3));
 }
-document.getElementById("newuser").onclick = newUser;
+function tick() {
+  const t = new Date().toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}).replace(/\s?[AP]M/i, "");
+  document.querySelectorAll(".clock").forEach(c => c.textContent = t);
+}
+
+let workerNumber = "";
+const phones = [makePhone(() => numInput.value.trim(), "CL")];
+if (showWorker) phones.push(makePhone(() => workerNumber, "CL"));
+numInput.onchange = () => { phones[0].key = ""; phones[0].last = []; poll(); };
+async function newPatient() {
+  // A fictional number nobody has used yet, so the conversation starts with sign-up.
+  const { phone } = await (await fetch("/dev/new-phone")).json();
+  numInput.value = phone; numInput.onchange();
+}
+document.getElementById("next").onclick = newPatient;
 fetch("/dev/config").then(r => r.json()).then(c => {
-  document.getElementById("clinic").textContent = c.clinic;
-  newUser();  // every page load starts as a brand-new user
+  workerNumber = c.chws[0];
+  const pretty = n => n.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3");
+  phones.forEach(p => p.name.innerHTML = `CareLine <span>${esc(pretty(c.clinic))} ›</span>`);
+  newPatient();  // every page load starts as a brand-new patient
 });
-setInterval(poll, 1500);
+window.addEventListener("resize", fit);
+fit(); tick(); setInterval(tick, 15000); setInterval(poll, 1500);
 </script>
 </body>
 </html>

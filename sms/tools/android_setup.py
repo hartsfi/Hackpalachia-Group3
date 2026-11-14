@@ -32,7 +32,7 @@ if cmd == "list":
 elif cmd == "test":
     to = sys.argv[2]
     r = requests.post(f"{API}/message", auth=AUTH, timeout=20,
-                      json={"textMessage": {"text": "TextBridge test: the Android gateway works."}, "phoneNumbers": [to]})
+                      json={"textMessage": {"text": "CareLine test: the Android gateway works."}, "phoneNumbers": [to]})
     print(r.status_code, r.text[:300])
 else:
     if not config.PUBLIC_BASE_URL:

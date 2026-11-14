@@ -43,7 +43,7 @@ async def lifespan(_app):
     task.cancel()
 
 
-app = FastAPI(title="TextBridge", lifespan=lifespan)
+app = FastAPI(title="CareLine", lifespan=lifespan)
 
 _basic = HTTPBasic(auto_error=False)
 
