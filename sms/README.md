@@ -38,7 +38,7 @@ cp .env.example .env
 uv run uvicorn app.main:app --reload --port 8790
 ```
 
-- Phone simulator: http://127.0.0.1:8790/simulator (a patient phone and a health worker phone side by side)
+- Phone simulator: http://127.0.0.1:8790/simulator (the patient's phone; add `?worker=1` to show a health worker phone beside it)
 - Dashboard: http://127.0.0.1:8790/dashboard
 
 ## Health worker text commands
