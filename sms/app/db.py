@@ -1,0 +1,222 @@
+import sqlite3
+import time
+
+from . import config
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS cases (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  patient_phone TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open',
+  category TEXT,
+  urgency TEXT,
+  summary TEXT,
+  language TEXT DEFAULT 'en',
+  assigned_chw TEXT,
+  created_at REAL,
+  updated_at REAL
+);
+CREATE TABLE IF NOT EXISTS messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id INTEGER REFERENCES cases(id),
+  sender TEXT NOT NULL,          -- patient | chw | dashboard | system
+  from_phone TEXT,
+  to_phone TEXT,
+  body TEXT,
+  channel TEXT,                  -- twilio | dev | inbound | failed
+  sid TEXT,
+  created_at REAL
+);
+-- Mock clinic calendar: one patient per slot. The partial unique index is what
+-- makes "slot taken in the meantime" safe even if two people pick it at once.
+CREATE TABLE IF NOT EXISTS bookings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id INTEGER REFERENCES cases(id),
+  patient_phone TEXT NOT NULL,
+  service_id TEXT NOT NULL,
+  start_ts REAL NOT NULL,
+  status TEXT NOT NULL DEFAULT 'booked',   -- booked | cancelled
+  reminded INTEGER NOT NULL DEFAULT 0,
+  created_at REAL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_slot ON bookings(service_id, start_ts) WHERE status='booked';
+CREATE TABLE IF NOT EXISTS optouts (phone TEXT PRIMARY KEY, created_at REAL);
+CREATE INDEX IF NOT EXISTS idx_cases_phone ON cases(patient_phone, status);
+CREATE INDEX IF NOT EXISTS idx_messages_case ON messages(case_id);
+"""
+
+# Columns added after the first version; added in place so old databases keep working.
+CASE_EXTRAS = {
+    "stage": "TEXT",        # where the patient is in the booking questions (see relay.py)
+    "income": "TEXT",       # low | standard
+    "zip": "TEXT",
+    "town": "TEXT",
+    "offers": "TEXT",       # JSON list of visit options last texted to the patient
+    "resched_id": "INTEGER",  # booking being moved, kept until the new one is picked
+}
+
+
+def connect() -> sqlite3.Connection:
+    c = sqlite3.connect(config.DB_PATH, check_same_thread=False, timeout=10)
+    c.row_factory = sqlite3.Row
+    return c
+
+
+def init() -> None:
+    with connect() as c:
+        c.executescript(SCHEMA)
+        have = {r[1] for r in c.execute("PRAGMA table_info(cases)")}
+        for col, typ in CASE_EXTRAS.items():
+            if col not in have:
+                c.execute(f"ALTER TABLE cases ADD COLUMN {col} {typ}")
+
+
+def now() -> float:
+    return time.time()
+
+
+# ---------------------------------------------------------------- cases
+def open_case_for(phone: str):
+    with connect() as c:
+        return c.execute(
+            "SELECT * FROM cases WHERE patient_phone=? AND status='open' ORDER BY id DESC LIMIT 1",
+            (phone,),
+        ).fetchone()
+
+
+def get_case(case_id: int):
+    with connect() as c:
+        return c.execute("SELECT * FROM cases WHERE id=?", (case_id,)).fetchone()
+
+
+def create_case(phone: str, triage: dict) -> int:
+    t = now()
+    with connect() as c:
+        cur = c.execute(
+            "INSERT INTO cases(patient_phone, category, urgency, summary, language, created_at, updated_at)"
+            " VALUES (?,?,?,?,?,?,?)",
+            (phone, triage["category"], triage["urgency"], triage["summary"], triage["language"], t, t),
+        )
+        return cur.lastrowid
+
+
+def update_case(case_id: int, **fields) -> None:
+    fields["updated_at"] = now()
+    cols = ", ".join(f"{k}=?" for k in fields)
+    with connect() as c:
+        c.execute(f"UPDATE cases SET {cols} WHERE id=?", (*fields.values(), case_id))
+
+
+def list_cases(status: str | None = None):
+    q = """SELECT c.*,
+             (SELECT body FROM messages m WHERE m.case_id=c.id AND m.sender='patient'
+              ORDER BY m.id DESC LIMIT 1) AS last_patient_message,
+             (SELECT COUNT(*) FROM bookings b WHERE b.case_id=c.id AND b.status='booked') AS booked
+           FROM cases c"""
+    args: tuple = ()
+    if status:
+        q += " WHERE c.status=?"
+        args = (status,)
+    q += """ ORDER BY c.status='open' DESC,
+             CASE c.urgency WHEN 'emergency' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+             c.updated_at DESC"""
+    with connect() as c:
+        return [dict(r) for r in c.execute(q, args).fetchall()]
+
+
+# ---------------------------------------------------------------- messages
+def add_message(case_id, sender, from_phone, to_phone, body, channel, sid=None) -> None:
+    with connect() as c:
+        c.execute(
+            "INSERT INTO messages(case_id, sender, from_phone, to_phone, body, channel, sid, created_at)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            (case_id, sender, from_phone, to_phone, body, channel, sid, now()),
+        )
+        if case_id:
+            c.execute("UPDATE cases SET updated_at=? WHERE id=?", (now(), case_id))
+
+
+def case_messages(case_id: int):
+    with connect() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM messages WHERE case_id=? ORDER BY id", (case_id,)).fetchall()]
+
+
+def phone_messages(phone: str, since_id: int = 0):
+    """Everything sent to or from one phone (used by the dev phone simulator)."""
+    with connect() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM messages WHERE (to_phone=? OR from_phone=?) AND id>? ORDER BY id",
+            (phone, phone, since_id)).fetchall()]
+
+
+# ---------------------------------------------------------------- bookings
+def taken_slots(service_id: str) -> set[float]:
+    with connect() as c:
+        return {r[0] for r in c.execute(
+            "SELECT start_ts FROM bookings WHERE service_id=? AND status='booked'", (service_id,))}
+
+
+def book(case_id: int, phone: str, service_id: str, start_ts: float) -> int | None:
+    """Returns the booking id, or None when someone else holds the slot."""
+    try:
+        with connect() as c:
+            # Booked less than a day ahead: no separate 24-hour reminder is needed.
+            reminded = 1 if start_ts - now() <= 24 * 3600 else 0
+            cur = c.execute(
+                "INSERT INTO bookings(case_id, patient_phone, service_id, start_ts, reminded, created_at)"
+                " VALUES (?,?,?,?,?,?)", (case_id, phone, service_id, start_ts, reminded, now()))
+            return cur.lastrowid
+    except sqlite3.IntegrityError:
+        return None
+
+
+def get_booking(booking_id: int):
+    with connect() as c:
+        return c.execute("SELECT * FROM bookings WHERE id=?", (booking_id,)).fetchone()
+
+
+def active_booking(phone: str):
+    with connect() as c:
+        return c.execute(
+            "SELECT * FROM bookings WHERE patient_phone=? AND status='booked' AND start_ts>?"
+            " ORDER BY start_ts LIMIT 1", (phone, now())).fetchone()
+
+
+def cancel_booking(booking_id: int) -> None:
+    with connect() as c:
+        c.execute("UPDATE bookings SET status='cancelled' WHERE id=?", (booking_id,))
+
+
+def case_bookings(case_id: int):
+    with connect() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT * FROM bookings WHERE case_id=? ORDER BY id", (case_id,)).fetchall()]
+
+
+def due_reminders(at: float):
+    with connect() as c:
+        return c.execute(
+            "SELECT * FROM bookings WHERE status='booked' AND reminded=0 AND start_ts>? AND start_ts<=?",
+            (at, at + 24 * 3600)).fetchall()
+
+
+def mark_reminded(booking_id: int) -> None:
+    with connect() as c:
+        c.execute("UPDATE bookings SET reminded=1 WHERE id=?", (booking_id,))
+
+
+# ---------------------------------------------------------------- opt-out
+def opt_out(phone: str) -> None:
+    with connect() as c:
+        c.execute("INSERT OR IGNORE INTO optouts(phone, created_at) VALUES (?,?)", (phone, now()))
+
+
+def opt_in(phone: str) -> None:
+    with connect() as c:
+        c.execute("DELETE FROM optouts WHERE phone=?", (phone,))
+
+
+def is_opted_out(phone: str) -> bool:
+    with connect() as c:
+        return c.execute("SELECT 1 FROM optouts WHERE phone=?", (phone,)).fetchone() is not None
