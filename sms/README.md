@@ -19,6 +19,17 @@ Clinics can be connected to **athenahealth** (athenaOne): their open times come 
 athenahealth and visits are booked, moved and cancelled there (see "athenahealth booking" in
 [TESTING.md](TESTING.md)). The others use the mock calendar.
 
+The **clinic finder** ([`app/finder.py`](app/finder.py)) decides which clinics to offer. It starts
+from the ZIP code and favors the nearest clinic that can help: clinics that take the patient's
+income group, within 45 miles, nearest first, with a head start for a clinic known for the
+patient's need, each with its next open time. It is plain rules with no model calls, and it never
+diagnoses; emergencies get 911 / 988 before any booking question. With `CLINIC_SOURCE=athena` the
+clinics are the departments of one or more athenahealth practices (`ATHENA_PRACTICE_IDS`, one per
+clinic organization), loaded by [`app/clinics.py`](app/clinics.py) and completed by
+`app/data/clinic_overrides.json`; the default `CLINIC_SOURCE=sample` keeps the sample clinics.
+Check it with `python -m tools.check_finder` (no server or key needed); the "Clinic finder" section
+of [TESTING.md](TESTING.md) has the simulator steps and the going-live checklist.
+
 With `ANTHROPIC_API_KEY` set, patients can answer the booking questions in their own words: "im on
 medicaid" instead of `1`, "the tuesday one" instead of `2`, a misspelled town instead of a ZIP.
 Claude only picks which allowed answer was meant ([`app/understand.py`](app/understand.py)); every

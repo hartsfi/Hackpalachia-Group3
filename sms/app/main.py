@@ -97,7 +97,7 @@ def api_case(case_id: int):
     bookings = []
     for b in db.case_bookings(case_id):
         svc = services.clinics().get(b["service_id"], {})
-        bookings.append({**b, "clinic": svc.get("short", b["service_id"]), "when": services.when(b["start_ts"])})
+        bookings.append({**b, "clinic": svc.get("short", b["service_id"]), "when": services.when(b["start_ts"], tz=svc.get("tz"))})
     return {"case": dict(case), "messages": db.case_messages(case_id), "bookings": bookings}
 
 

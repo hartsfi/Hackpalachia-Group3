@@ -130,7 +130,8 @@ def choice(body: str, opts: list[dict]) -> str | None:
     if not opts:
         return None
     lines = "\n".join(
-        f"{i}) {o['short']}, {o['mi']} miles, {services.when(o['ts'])}" for i, o in enumerate(opts, 1)
+        f"{i}) {o['short']}, {o['mi']} miles, {services.when(o['ts'], tz=services.clinic_tz(o['service_id']))}"
+        for i, o in enumerate(opts, 1)
     )
     got = _ask(
         f"Question asked: reply 1-{len(opts)} to book one of these visits, or 0 for none:\n{lines}\n"

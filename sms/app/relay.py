@@ -7,7 +7,8 @@ Patient booking conversation (case.stage):
   ask_where   what care do you need, and your ZIP or town?
   ask_income  1 = low income / Medicaid / no insurance, 2 = other insurance or can pay
   ask_slot    up to three numbered visits (name, distance, next time); reply a number
-  ask_identity  athenahealth clinics only, once per phone: name + date of birth for the patient record
+  ask_identity  athenahealth clinics only, once per phone and clinic organization: name + date of
+                birth for the patient record
   booked / done / None   free texting with the health worker
 Replies in the patient's own words ("im on medicaid", "the tuesday one") are mapped to the exact
 answer by understand.py when Claude is on; the questions, replies and bookings stay scripted.
@@ -271,7 +272,7 @@ def _on_income(case, word: str) -> None:
         sms.send(case["patient_phone"], _t(case["language"], "income_again"), case["id"], "system")
         return
     db.update_case(case["id"], income=income)
-    _offer(db.get_case(case["id"]), services.options(income, _place_of(case)), "options")
+    _offer(db.get_case(case["id"]), services.options(income, _place_of(case), need=case["category"]), "options")
 
 
 def _offer(case, opts: list[dict], header_key: str, **kw) -> None:
@@ -288,7 +289,7 @@ def _offer(case, opts: list[dict], header_key: str, **kw) -> None:
 
 def _visit_fields(service_id: str, ts: float) -> dict:
     svc = services.clinics()[service_id]
-    return {"short": svc["short"], "when": services.when(ts), "address": svc["address"],
+    return {"short": svc["short"], "when": services.when(ts, tz=svc.get("tz")), "address": svc["address"],
             "town": svc["town"], "phone": svc["phone"]}
 
 
@@ -310,7 +311,7 @@ def _on_slot(case, word: str) -> None:
         return
 
     pick = opts[int(word) - 1]
-    if services.uses_athena(pick["service_id"]) and not db.athena_patient(phone):
+    if services.uses_athena(pick["service_id"]) and not db.athena_patient(phone, services.practice_of(pick["service_id"])):
         db.update_case(case["id"], stage="ask_identity", pick=json.dumps(pick))
         sms.send(phone, _t(lang, "identity", short=pick["short"]), case["id"], "system")
         return
@@ -319,29 +320,37 @@ def _on_slot(case, word: str) -> None:
 
 def _book_pick(case, pick: dict) -> None:
     lang, phone, sid = case["language"], case["patient_phone"], pick["service_id"]
-    ext = None
+    ext, moved = None, False
     if services.uses_athena(sid):
+        a, patient = services.clinics()[sid]["athena"], db.athena_patient(phone, services.practice_of(sid))
+        old = db.get_booking(case["resched_id"]) if case["resched_id"] else None
+        # Old and new visit in the same practice: athenahealth moves it in one reschedule call.
+        moved = bool(old and old["external_id"] and services.practice_of(old["service_id"]) == services.practice_of(sid))
         try:
-            ok = athena.client.book(pick["ext"], db.athena_patient(phone),
-                                    services.clinics()[sid]["athena"], pick.get("atype"))
+            if moved:
+                ext = athena.client.reschedule(old["external_id"], pick["ext"], patient, a)
+            elif athena.client.book(pick["ext"], patient, a, pick.get("atype")):
+                ext = pick["ext"]
         except Exception as e:
             _booking_down(case, e, f"book {pick['short']} {services.when(pick['ts'])}")
             return
         services.forget_athena_slots(sid)
-        if not ok:  # taken in athenahealth in the meantime
-            _offer(case, services.next_times(sid, _place_of(case)), "taken", short=pick["short"])
+        if not ext:  # taken in athenahealth in the meantime
+            _offer(case, services.next_times(sid, _place_of(case), need=case["category"]), "taken", short=pick["short"])
             return
-        ext = pick["ext"]
     booking_id = db.book(case["id"], phone, sid, pick["ts"], ext)
     if booking_id is None:  # someone else got it first
-        _offer(case, services.next_times(sid, _place_of(case)), "taken", short=pick["short"])
+        _offer(case, services.next_times(sid, _place_of(case), need=case["category"]), "taken", short=pick["short"])
         return
 
     fields = _visit_fields(sid, pick["ts"])
     if case["resched_id"]:
         old = db.get_booking(case["resched_id"])
         try:
-            _cancel_external(old)
+            if moved:  # athenahealth already gave the old time back
+                services.forget_athena_slots(old["service_id"])
+            else:
+                _cancel_external(old)
         except Exception as e:  # new visit is booked; a person must cancel the old one
             log.error("could not cancel old athenahealth visit %s: %s", old["external_id"], e)
             _notify_chws(case, f"[#{case['id']}] please cancel the old visit in athenahealth: "
@@ -428,20 +437,23 @@ def _on_identity(case, body: str) -> None:
         return
     pick = json.loads(case["pick"])
     first, last, dob = parsed
+    practice = services.practice_of(pick["service_id"])
     try:
         pid = athena.client.find_or_create_patient(
-            first, last, dob, phone, case["zip"] or "", services.clinics()[pick["service_id"]]["athena"]["departmentid"])
+            first, last, dob, phone, case["zip"] or "", services.clinics()[pick["service_id"]]["athena"]["departmentid"],
+            practice)
     except Exception as e:
         _booking_down(case, e, "find or create the patient record")
         return
-    db.save_athena_patient(phone, pid)
+    db.save_athena_patient(phone, pid, practice)
     db.update_case(case["id"], stage="ask_slot", pick=None)
     _book_pick(db.get_case(case["id"]), pick)
 
 
 def _cancel_external(booking) -> None:
     if booking and booking["external_id"] and services.uses_athena(booking["service_id"]):
-        athena.client.cancel(booking["external_id"], db.athena_patient(booking["patient_phone"]))
+        practice = services.practice_of(booking["service_id"])
+        athena.client.cancel(booking["external_id"], db.athena_patient(booking["patient_phone"], practice), practice)
         services.forget_athena_slots(booking["service_id"])
 
 
@@ -479,7 +491,8 @@ def _change_visit(phone: str, body: str, word: str, case) -> None:
         _notify_chws(case, f"[#{case_id}] cancelled {fields['short']} {fields['when']}")
         return
     # Reschedule: keep the old visit until a new one is picked.
-    opts = [o for o in services.options(case["income"] or "low", _place_of(case) or services.places()[0])
+    opts = [o for o in services.options(case["income"] or "low", _place_of(case) or services.places()[0],
+                                        need=case["category"])
             if not (o["service_id"] == booking["service_id"] and o["ts"] == booking["start_ts"])]
     db.update_case(case_id, resched_id=booking["id"])
     sms.send(phone, _t(lang, "resched", **fields), case_id, "system")
