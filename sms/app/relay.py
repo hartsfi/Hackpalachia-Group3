@@ -35,7 +35,7 @@ YES, NO = {"1", "yes", "y", "si", "sí"}, {"2", "no", "n"}
 
 TEXT = {
     "en": {
-        "start": "TextBridge: What do you need care for, and what is your ZIP code or town? "
+        "start": "CareLine: What do you need care for, and what is your ZIP code or town? "
                  "If this is an emergency, call 911.",
         "where_again": "Sorry, I could not find that place. Please send a 5-digit ZIP code or "
                        "town name, like 45701 or Nelsonville.",
@@ -62,9 +62,9 @@ TEXT = {
                      "worker now.",
         "crisis": "You are not alone. Call or text 988 any time to reach the Suicide & Crisis "
                   "Lifeline. If you are in danger now, call 911.",
-        "help": "TextBridge health line. Text what care you need and your ZIP to book. CANCEL "
+        "help": "CareLine health line. Text what care you need and your ZIP to book. CANCEL "
                 "VISIT or RESCHEDULE changes a visit. STOP to opt out. Emergency: 911",
-        "resubscribed": "You will get TextBridge texts again. Text what care you need and your "
+        "resubscribed": "You will get CareLine texts again. Text what care you need and your "
                         "ZIP code or town.",
         "identity": "To book at {short}, reply with your first and last name and date of birth, "
                     "like: Jane Doe 03/14/1980",
@@ -75,7 +75,7 @@ TEXT = {
     },
     # Spanish avoids á í ó ú so every text stays in the 160-character GSM-7 alphabet.
     "es": {
-        "start": "TextBridge: ¿Que atencion medica necesita, y cual es su codigo postal o "
+        "start": "CareLine: ¿Que atencion medica necesita, y cual es su codigo postal o "
                  "pueblo? Si es una emergencia, llame al 911.",
         "where_again": "No encontré ese lugar. Envie un codigo postal de 5 digitos o el nombre "
                        "del pueblo, como 45701 o Nelsonville.",
@@ -103,9 +103,9 @@ TEXT = {
                      "trabajador de salud.",
         "crisis": "No esta solo. Llame o escriba al 988 (oprima 2 para español). Si esta en "
                   "peligro ahora, llame al 911.",
-        "help": "TextBridge: escriba que atencion necesita y su codigo postal. CANCELAR CITA o "
+        "help": "CareLine: escriba que atencion necesita y su codigo postal. CANCELAR CITA o "
                 "CAMBIAR CITA. STOP para salir. Emergencia: 911",
-        "resubscribed": "Recibira mensajes de TextBridge otra vez. Escriba que atencion "
+        "resubscribed": "Recibira mensajes de CareLine otra vez. Escriba que atencion "
                         "necesita y su codigo postal.",
         "identity": "Para reservar en {short}, responda con su nombre, apellido y fecha de "
                     "nacimiento, asi: Ana Diaz 03/14/1980",
