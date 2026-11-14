@@ -25,6 +25,10 @@ Logging: ids, paths and athenahealth's own error text only. Request parameters a
 logged, and for /patients calls not even the detailed error text, so no names, dates of birth
 or phone numbers reach the logs.
 """
+# The client has a method named `list`, which hides the built-in inside the class body. Without
+# this, `-> list[dict]` on later methods fails at import on Python 3.13 and earlier.
+from __future__ import annotations
+
 import datetime as dt
 import logging
 import threading
