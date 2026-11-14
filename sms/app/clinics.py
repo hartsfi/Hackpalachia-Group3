@@ -158,6 +158,8 @@ def short_name(name: str, width: int = 18) -> str:
     for long, short in SHORTER:
         if len(name) > width:
             name = name.replace(long, short)
+    while len(name) > width and " " in name:  # still too long: drop whole words from the end
+        name = name.rsplit(" ", 1)[0]
     return name[:width].strip()
 
 
