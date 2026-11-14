@@ -103,7 +103,7 @@ async def sms_android(request: Request):
 def health():
     return {"ok": True, "sms": config.SMS_PROVIDER if config.SMS_ENABLED else "dev",
             "twilio": config.TWILIO_ENABLED, "android": config.ANDROID_ENABLED,
-            "claude": bool(config.ANTHROPIC_API_KEY), "simulator": config.DEV_SIMULATOR}
+            "llm": config.LLM_PROVIDER, "simulator": config.DEV_SIMULATOR}
 
 
 # ---------------------------------------------------------------- dashboard API

@@ -1,5 +1,6 @@
 """Places, clinics and the mock clinic calendar (app/data/*.json + the bookings table)."""
 import datetime as dt
+import difflib
 import json
 import logging
 import math
@@ -55,6 +56,15 @@ def find_place(text: str) -> dict | None:
     for p in sorted(pl, key=lambda p: -len(p["town"])):
         if re.search(r"\b" + re.escape(p["town"]) + r"\b", text, re.I):
             return p
+    # Typos ("nelsonvile", "glouser"): close match on single words and word pairs, 5+ letters.
+    words = re.findall(r"[a-z]+", text.lower())
+    grams = words + [f"{a} {b}" for a, b in zip(words, words[1:])]
+    towns = {p["town"].lower(): p for p in pl}
+    for g in grams:
+        if len(g) >= 5:
+            hit = difflib.get_close_matches(g, towns, n=1, cutoff=0.85)
+            if hit:
+                return towns[hit[0]]
     return None
 
 

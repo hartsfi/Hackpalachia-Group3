@@ -16,7 +16,13 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
 CHW_NUMBERS = _list("CHW_NUMBERS") or ["+17405550199"]
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
-TRIAGE_MODEL = os.getenv("TRIAGE_MODEL", "claude-haiku-5-5").strip()
+
+# LLM brain that reads patient texts: ollama (local, default) | anthropic | rules
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").strip().rstrip("/")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b").strip()
+LLM_MODEL = os.getenv("LLM_MODEL", "claude-opus-5-5").strip()      # used when LLM_PROVIDER=anthropic
+LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "20"))                 # seconds, then keyword rules
 
 DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "").strip()
 DB_PATH = os.getenv("DB_PATH", "textbridge.db")

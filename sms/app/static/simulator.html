@@ -24,12 +24,11 @@
 <header><h1>Phone simulator (dev mode, no real texts are sent)</h1><a href="/dashboard" target="_blank">Open dashboard ↗</a></header>
 <div class="phones">
   <div class="phone" id="patient"><div class="ph"><b>Patient's phone</b><input class="num" value="+17405550123"></div><div class="msgs"></div><form><input placeholder="Text the clinic number…"><button>Send</button></form></div>
-  <div class="phone" id="chw"><div class="ph"><b>Health worker's phone</b><input class="num" readonly></div><div class="msgs"></div><form><input placeholder="#1 your reply…"><button>Send</button></form></div>
 </div>
-<p class="note">Both phones text the clinic number <b id="clinic"></b>. The worker answers with <code>#case message</code>, <code>#case close</code> or <code>LIST</code>.</p>
+<p class="note">This phone texts the clinic number <b id="clinic"></b>. Health workers answer from the <a href="/dashboard" target="_blank">dashboard</a>.</p>
 <script>
 const esc = s => String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
-const phones = ["patient", "chw"].map(id => {
+const phones = ["patient"].map(id => {
   const el = document.getElementById(id);
   const p = { el, num: el.querySelector(".num"), box: el.querySelector(".msgs"), key: "" };
   el.querySelector("form").onsubmit = async e => {
@@ -51,7 +50,7 @@ async function poll() {
   }
 }
 fetch("/dev/config").then(r => r.json()).then(c => {
-  phones[1].num.value = c.chws[0]; document.getElementById("clinic").textContent = c.clinic; poll();
+  document.getElementById("clinic").textContent = c.clinic; poll();
 });
 setInterval(poll, 1500);
 </script>

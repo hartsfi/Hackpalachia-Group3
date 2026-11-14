@@ -60,6 +60,13 @@ It is read as Nelsonville. Basic phones type a ZIP or town.
 | Worker | `hello` | Hint about the `#case message` format |
 | Dashboard | Open a case, type, Send | Arrives on the patient's phone |
 
+### LLM brain on real-life messages
+
+With Ollama running (`ollama list` shows `llama3.1:8b`): `uv run python tools/check_llm.py` sends
+10 messages (fever in a misspelled town, insulin with no car, chest pain, blue lips, overdose,
+toothache, Spanish, hopelessness) and checks need, place and that every emergency is caught.
+`LLM_PROVIDER=rules uv run python tools/check_llm.py` shows what the keyword rules alone catch.
+
 ### Automatic check of every acceptance criterion
 
 ```bash

@@ -169,10 +169,13 @@ def _from_patient(phone: str, body: str) -> None:
         db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
         return
 
+    # Read free text with the LLM brain once; menu answers ("1", "0", keywords) skip it.
+    tri = triage(body) if _is_free_text(word) else None
+
     # Emergencies first, at any point in the conversation: no booking flow.
-    if EMERGENCY_WORDS.search(body):
+    if EMERGENCY_WORDS.search(body) or (tri and tri["urgency"] == "emergency"):
         if case is None:
-            tri = triage(body)
+            tri = tri or triage(body)
             case_id = db.create_case(phone, tri)
             case = db.get_case(case_id)
         db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
@@ -195,13 +198,13 @@ def _from_patient(phone: str, body: str) -> None:
         return
 
     if case is None:
-        _new_case(phone, body)
+        _new_case(phone, body, tri or triage(body))
         return
 
     db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     stage = case["stage"]
     if stage == "ask_where":
-        _on_where(case, body)
+        _on_where(case, body, tri)
     elif stage == "ask_income":
         _on_income(case, word)
     elif stage == "ask_slot":
@@ -212,9 +215,18 @@ def _from_patient(phone: str, body: str) -> None:
         _notify_chws(case, f"[#{case_id}] {_tail(phone)}: {body}")
 
 
-def _new_case(phone: str, body: str) -> None:
+def _is_free_text(word: str) -> bool:
+    """Worth sending to the LLM: real words, not a menu number or a one-word command."""
+    return len(word) >= 4 and not word.isdigit() and word not in STOP_WORDS | START_WORDS | CANCEL_VISIT | RESCHEDULE | {"help", "list"}
+
+
+def _find_place(body: str, tri: dict | None) -> dict | None:
+    """A ZIP or town typed in the text, else the place the LLM picked out of it."""
+    return services.find_place(body) or (services.find_place(tri["place"]) if tri and tri.get("place") else None)
+
+
+def _new_case(phone: str, body: str, tri: dict) -> None:
     first_contact = db.is_first_contact(phone)
-    tri = triage(body)
     case_id = db.create_case(phone, tri)
     db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     case = db.get_case(case_id)
@@ -222,7 +234,7 @@ def _new_case(phone: str, body: str) -> None:
         sms.send(phone, _t(tri["language"], "welcome"), case_id, "system")
     _notify_chws(case, f"[#{case_id} {tri['urgency'].upper()} {tri['category']}] {_tail(phone)}: {body}\n"
                        f"Summary: {tri['summary']}\nReply: #{case_id} your message")
-    place = services.find_place(body)
+    place = _find_place(body, tri)
     if place:
         _ask_income(case, place)
     else:
@@ -238,15 +250,15 @@ def _ask_income(case, place: dict) -> None:
 GREETING = re.compile(r"^(hi+|hey+|hello+|hiya|yo|hola|good (morning|afternoon|evening)|ok(ay)?|thanks?|thank you)( there)?\W*$", re.I)
 
 
-def _on_where(case, body: str) -> None:
-    place = services.find_place(body)
+def _on_where(case, body: str, tri: dict | None = None) -> None:
+    place = _find_place(body, tri)
     if not place:
         # A greeting isn't a failed place: ask the friendly first question again.
         key = "start" if GREETING.match(body.strip()) else "where_again"
         sms.send(case["patient_phone"], _t(case["language"], key), case["id"], "system")
         return
     if case["category"] == "other":  # first text was just "hi": sort the need from this one
-        tri = triage(body)
+        tri = tri or triage(body)
         db.update_case(case["id"], category=tri["category"], summary=tri["summary"],
                        urgency=max(case["urgency"], tri["urgency"], key=["low", "medium", "high", "emergency"].index))
     _ask_income(case, place)

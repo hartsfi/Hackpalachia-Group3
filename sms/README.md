@@ -19,6 +19,13 @@ Clinics can be connected to **athenahealth** (athenaOne): their open times come 
 athenahealth and visits are booked, moved and cancelled there (see "athenahealth booking" in
 [TESTING.md](TESTING.md)). The others use the mock calendar.
 
+**LLM brain.** Free-text messages are read by a local model through Ollama (default
+`llama3.1:8b`, set `LLM_PROVIDER` / `OLLAMA_MODEL` in `.env`), so patient texts never leave the
+machine. It picks out the need, urgency, place (typos included) and a one-line summary for the
+health worker, in about a second. Claude (`LLM_PROVIDER=anthropic`) or keyword rules (`rules`) are
+alternatives; if the model is down, the rules answer. Emergency words always trigger 911/988, and
+the model can raise urgency but never lower it. Booking, clinics and times never come from the model.
+
 Each new text is triaged by need (rides, medicine, appointments, food, housing, mental health, insurance, utilities) and urgency. Claude does this when
 `ANTHROPIC_API_KEY` is set, keyword rules otherwise. Emergency and crisis words always get an
 immediate 911 / 988 reply, in English or Spanish.
