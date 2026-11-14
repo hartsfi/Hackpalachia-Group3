@@ -248,8 +248,9 @@ def dev_demo_patient():
     case_id = db.create_case(phone, {"category": "checkup", "urgency": "low", "summary": "Checkup (demo patient)",
                                      "language": "en"})
     db.update_case(case_id, zip="45764", town="Nelsonville", income="low", stage="booked", status="closed")
-    svc = next(s for s in services.clinics().values() if not s.get("kind") and not s.get("athena"))
-    slot = services.free_slots(svc, 1)[0]
+    # The first clinic that still has an open time (a busy demo can fill one clinic's calendar).
+    svc, slot = next((s, f[0]) for s in services.clinics().values()
+                     if not s.get("kind") and not s.get("athena") and (f := services.free_slots(s, 1)))
     db.book(case_id, phone, svc["id"], slot["ts"])
     return {"phone": phone, "name": "Sam Miller", "visit": f"{services.when(slot['ts'])} {svc['short']}"}
 
