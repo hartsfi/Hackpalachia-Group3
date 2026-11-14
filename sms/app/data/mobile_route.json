@@ -1,5 +1,5 @@
 {
-  "_note": "Real route of the Heritage Community Clinic mobile primary care clinics (Ohio University Heritage College of Osteopathic Medicine). Copied by hand on 2026-11-14 from the source page below. Stops change month to month: refresh this file from the page (or call to confirm) before relying on it. CareLine cannot book these stops; people book by phone.",
+  "_note": "Real route of the Heritage Community Clinic mobile primary care clinics (Ohio University Heritage College of Osteopathic Medicine). Copied by hand on 2026-11-14 (primary care stops and the two specialty clinics listed with them) from the source page below. Stops change month to month: refresh this file from the page (or call to confirm) before relying on it. CareLine cannot book these stops; people book by phone.",
   "source": "https://www.ohio.edu/medicine/community-health/community-clinic/primary-care",
   "retrieved": "2026-11-14",
   "name": "Heritage Community Clinic mobile clinic",
@@ -7,11 +7,65 @@
   "eligibility": "Free primary care for qualifying adults ages 18-64 in southeast Ohio counties",
   "for": "low",
   "stops": [
-    {"date": "2026-11-16", "start": "09:00", "end": "15:30", "town": "Logan", "where": "Shriver's Pharmacy"},
-    {"date": "2026-11-18", "start": "08:00", "end": "15:00", "town": "Athens", "where": "Heritage Community Clinic"},
-    {"date": "2026-11-23", "start": "09:00", "end": "11:30", "town": "Belpre", "where": "Fruth Pharmacy"},
-    {"date": "2026-11-23", "start": "13:00", "end": "15:30", "town": "Stewart", "where": "Federal Valley Resource Center"},
-    {"date": "2026-12-02", "start": "09:00", "end": "15:30", "town": "McArthur", "where": "Campbell's Market"},
-    {"date": "2026-12-14", "start": "09:00", "end": "11:30", "town": "Pomeroy", "where": "Powell's Food Fair"}
+    {
+      "date": "2026-11-16",
+      "start": "09:00",
+      "end": "15:30",
+      "town": "Logan",
+      "where": "Shriver's Pharmacy"
+    },
+    {
+      "date": "2026-11-17",
+      "start": "09:00",
+      "end": "12:00",
+      "town": "Athens",
+      "where": "Heritage Community Clinic, 16 West Green Dr",
+      "service": "Sexual Health and Wellness Clinic",
+      "short": "Sexual Health"
+    },
+    {
+      "date": "2026-11-18",
+      "start": "08:00",
+      "end": "15:00",
+      "town": "Athens",
+      "where": "Heritage Community Clinic, 16 West Green Dr"
+    },
+    {
+      "date": "2026-11-19",
+      "start": "09:30",
+      "end": "15:00",
+      "town": "New Lexington",
+      "where": "Perry County Department of JFS",
+      "service": "Women's Health Screening",
+      "short": "Women's Health"
+    },
+    {
+      "date": "2026-11-23",
+      "start": "09:00",
+      "end": "11:30",
+      "town": "Belpre",
+      "where": "Fruth Pharmacy"
+    },
+    {
+      "date": "2026-11-23",
+      "start": "13:00",
+      "end": "15:30",
+      "town": "Stewart",
+      "where": "Federal Valley Resource Center"
+    },
+    {
+      "date": "2026-12-02",
+      "start": "09:00",
+      "end": "15:30",
+      "town": "McArthur",
+      "where": "Campbell's Market"
+    },
+    {
+      "date": "2026-12-14",
+      "start": "09:00",
+      "end": "11:30",
+      "town": "Pomeroy",
+      "where": "Powell's Food Fair"
+    }
   ]
 }

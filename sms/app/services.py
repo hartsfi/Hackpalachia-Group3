@@ -46,10 +46,12 @@ def mobile_stops() -> list[dict]:
         town = where.get(st["town"])
         if not town:
             continue
+        service = st.get("service")  # specialty clinics (e.g. women's health) vs primary care stops
         stops.append({
-            "id": f"mobile-{st['date']}-{st['town'].lower()}", "name": route["name"], "kind": "call",
-            "short": f"Mobile {st['town']}", "for": route["for"], "address": st["where"], "town": st["town"],
-            "phone": route["phone"], "lat": town["lat"], "lon": town["lon"],
+            "id": f"mobile-{st['date']}-{st['town'].lower().replace(' ', '-')}" + ("-" + st["short"].lower().replace(" ", "-").replace("'", "") if service else ""),
+            "name": service or route["name"], "kind": "call", "service": service,
+            "short": st.get("short") or f"Mobile {st['town']}", "for": route["for"], "address": st["where"],
+            "town": st["town"], "phone": route["phone"], "lat": town["lat"], "lon": town["lon"],
             "date": st["date"], "start": st["start"], "end": st["end"],
         })
     return stops
@@ -205,8 +207,10 @@ def _option(svc: dict, slot: dict, place: dict | None) -> dict:
 
 def options(income: str, place: dict, limit: int = 3) -> list[dict]:
     """Nearest clinics for this income group, each with its next open time."""
-    group = [s for s in clinics().values() if s["for"] in (income, "all")]
-    group.sort(key=lambda s: miles(place, s))
+    group = [s for s in clinics().values() if s["for"] in (income, "all") and not s.get("service")]
+    # Nearest first.
+    group.sort(key=lambda s: (0 if miles(place, s) < 1 and (s.get("real") or s.get("kind") == "call") else 1,
+                              miles(place, s)))  # in the patient's own town, real clinics come first
     opts = []
     for s in group:
         slot = free_slots(s, 1)

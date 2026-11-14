@@ -24,7 +24,7 @@ def check(name, cond, detail=""):
 def bookable(msg):
     """Number of the first option the server books itself (not a call-to-book mobile stop)."""
     for line in msg.split("\n"):
-        if line[:2] in ("1)", "2)", "3)") and "Mobile" not in line:
+        if line[:2] in ("1)", "2)", "3)") and "Mobile" not in line and "Heritage" not in line:
             return line[0]
     return "1"
 def show(msgs):
@@ -168,6 +168,15 @@ text(N4, "hi"); text(N4, "SKIP"); r, _ = text(N4, "6"); show(r); check("6 is no 
 N5 = "+17405550181"
 text(N5, "hi"); text(N5, "SKIP"); r, _ = text(N5, "im low on my pills, 45764"); show(r)
 check("typing the need instead of a number still works", any(m["body"].startswith("Pharmacies near you") for m in r))
+print("== Real Heritage Community Clinic (call to book)")
+H = "+17405550184"
+text(H, "need a checkup in Athens"); text(H, "SKIP"); r, _ = text(H, "1")
+hl = next((l[0] for l in r[-1]["body"].split("\n") if "Heritage" in l), None)
+check("the real Heritage clinic is offered near Athens", hl, r[-1]["body"].replace("\n", " / "))
+r, _ = text(H, hl or "1"); show(r)
+check("its real address, hours and phone, no fake booking", "16 West Green Dr" in r[-1]["body"] and "740-593-2432" in r[-1]["body"] and not r[-1]["body"].startswith("Booked"))
+r, _ = text("+17405550185", "MOBILE"); show(r)
+check("MOBILE includes the specialty clinics when they are next", "Health" in r[-1]["body"] and len(r[-1]["body"]) <= 160)
 print("== Reminder")
 case1 = [c for c in get("/api/cases") if c["patient_phone"] == P1][0]
 bk = [x for x in get(f"/api/cases/{case1['id']}")["bookings"] if x["status"] == "booked"][0]
