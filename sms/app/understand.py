@@ -52,7 +52,7 @@ def _ask(task: str, message: str, schema: dict) -> dict | None:
             extra["thinking"] = {"type": "disabled"}  # a one-field answer; keep replies fast
         resp = _client.messages.create(
             model=config.UNDERSTAND_MODEL,
-            max_tokens=500,
+            max_tokens=2000,
             system=BASE + "\n\n" + task,
             messages=[{"role": "user", "content": f"Text message:\n<<<{message}>>>"}],
             output_config={"format": {"type": "json_schema", "schema": schema}},
