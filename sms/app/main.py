@@ -182,6 +182,23 @@ def dev_text(t: DevText):
     return {"ok": True}
 
 
+# Fictional 555-01xx numbers (never real phones) across Ohio area codes, for simulator users.
+SIM_AREA_CODES = ["740", "614", "330", "216", "513", "937", "419", "220", "380", "567", "234", "440"]
+
+
+@app.get("/dev/new-phone", dependencies=[Depends(dev_only)])
+def dev_new_phone():
+    """A test number nobody has used yet, so the simulator starts as a brand-new user."""
+    import random
+
+    taken = {config.CLINIC_NUMBER, *config.CHW_NUMBERS}
+    for _ in range(500):
+        phone = f"+1{random.choice(SIM_AREA_CODES)}5550{random.randint(101, 198)}"
+        if phone not in taken and not db.get_patient(phone) and not db.phone_messages(phone):
+            return {"phone": phone}
+    raise HTTPException(503, "no unused test numbers left; delete textbridge.db to start over")
+
+
 @app.get("/dev/phone/{phone}", dependencies=[Depends(dev_only)])
 def dev_phone(phone: str, since: int = 0):
     return db.phone_messages(phone, since)

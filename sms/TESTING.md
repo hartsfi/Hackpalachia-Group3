@@ -13,7 +13,9 @@ uv run uvicorn app.main:app --port 8790
 ```
 
 Open http://127.0.0.1:8790/simulator (patient phone on the left, health worker phone on the right)
-and http://127.0.0.1:8790/dashboard in another tab. Restart the server after pulling new code.
+and http://127.0.0.1:8790/dashboard in another tab. Restart the server after pulling new code. Each page load (and the **New user** button) starts as a brand-new user with an
+unused fictional number, so you always see the sign-up; type a number into the box to continue as
+someone you used before.
 To start over, stop the server and delete `sms/textbridge.db`.
 
 ### Booking a visit (user story 1)

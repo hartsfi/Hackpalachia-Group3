@@ -10,7 +10,8 @@
   .phones { display:flex; gap:28px; justify-content:center; padding:24px; flex-wrap:wrap; }
   .phone { width:340px; height:620px; background:#fff; border-radius:28px; box-shadow:0 6px 24px #0002; display:flex; flex-direction:column; overflow:hidden; border:8px solid #1d2330; }
   .ph { padding:10px 14px; background:#f3f4f7; border-bottom:1px solid #dde1e8; }
-  .ph b { display:block; } .ph input { font:inherit; width:100%; margin-top:4px; padding:4px 6px; border:1px solid #ccd2db; border-radius:6px; }
+  .ph b { display:inline-block; margin-bottom:2px; }
+  .nu { float:right; font:inherit; font-size:12px; padding:2px 10px; border-radius:12px; border:1px solid #ccd2db; background:#fff; cursor:pointer; } .ph input { font:inherit; width:100%; margin-top:4px; padding:4px 6px; border:1px solid #ccd2db; border-radius:6px; }
   .msgs { flex:1; overflow:auto; padding:12px; display:flex; flex-direction:column; gap:6px; }
   .m { max-width:80%; padding:7px 11px; border-radius:16px; white-space:pre-wrap; font-size:14px; }
   .in { align-self:flex-start; background:#e7e9ee; } .out { align-self:flex-end; background:#2f7cf6; color:#fff; }
@@ -23,7 +24,7 @@
 <body>
 <header><h1>Phone simulator (dev mode, no real texts are sent)</h1><a href="/dashboard" target="_blank">Open dashboard ↗</a></header>
 <div class="phones">
-  <div class="phone" id="patient"><div class="ph"><b>Patient's phone</b><input class="num" value="+17405550123"></div><div class="msgs"></div><form><input placeholder="Text the clinic number…"><button>Send</button></form></div>
+  <div class="phone" id="patient"><div class="ph"><b>Patient's phone</b> <button type="button" id="newuser" class="nu">New user</button><input class="num" value=""></div><div class="msgs"></div><form><input placeholder="Text the clinic number…"><button>Send</button></form></div>
 </div>
 <p class="note">This phone texts the clinic number <b id="clinic"></b>. Health workers answer from the <a href="/dashboard" target="_blank">dashboard</a>.</p>
 <script>
@@ -49,8 +50,15 @@ async function poll() {
     p.box.scrollTop = 1e9;
   }
 }
+async function newUser() {
+  const { phone } = await (await fetch("/dev/new-phone")).json();
+  phones[0].num.value = phone; phones[0].key = ""; phones[0].box.innerHTML = "";
+  poll();
+}
+document.getElementById("newuser").onclick = newUser;
 fetch("/dev/config").then(r => r.json()).then(c => {
-  document.getElementById("clinic").textContent = c.clinic; poll();
+  document.getElementById("clinic").textContent = c.clinic;
+  newUser();  // every page load starts as a brand-new user
 });
 setInterval(poll, 1500);
 </script>
