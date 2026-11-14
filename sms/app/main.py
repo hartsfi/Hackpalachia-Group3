@@ -229,6 +229,33 @@ def simulator_agent():
     return FileResponse(STATIC / "simulator-agent.html")
 
 
+@app.get("/dev/recent-chats", dependencies=[Depends(dev_only)])
+def dev_recent_chats(limit: int = 25):
+    """Patient conversations, newest first, so the simulator can reopen one."""
+    import sqlite3
+    with db.connect() as c:
+        c.row_factory = sqlite3.Row
+        rows = c.execute(
+            "SELECT p.phone, MAX(m.id) AS last_id, MAX(m.created_at) AS ts FROM messages m "
+            "JOIN (SELECT from_phone AS phone FROM messages WHERE sender='patient' "
+            "      UNION SELECT to_phone FROM messages WHERE sender!='patient') p "
+            "  ON m.from_phone = p.phone OR m.to_phone = p.phone "
+            "WHERE m.channel != 'ai' GROUP BY p.phone ORDER BY ts DESC LIMIT ?", (limit * 2,)).fetchall()
+        out = []
+        for r in rows:
+            if not r["phone"] or r["phone"] in config.CHW_NUMBERS or r["phone"] == config.CLINIC_NUMBER:
+                continue
+            last = c.execute("SELECT body, sender FROM messages WHERE id=?", (r["last_id"],)).fetchone()
+            pat = db.get_patient(r["phone"])
+            name = " ".join(x for x in ((pat["first_name"], pat["last_name"]) if pat else ())
+                            if x and "unknown" not in x.lower() and "<" not in x)
+            out.append({"phone": r["phone"], "name": name, "ts": r["ts"],
+                        "last": ("You: " if last["sender"] == "patient" else "") + (last["body"] or "")[:80]})
+            if len(out) >= limit:
+                break
+    return out
+
+
 @app.post("/dev/agent-text", dependencies=[Depends(dev_only)])
 def dev_agent_text(t: DevText):
     from . import pure_agent
