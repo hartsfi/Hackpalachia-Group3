@@ -1,4 +1,5 @@
 import os
+import sys
 
 from dotenv import load_dotenv
 
@@ -16,7 +17,13 @@ PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
 CHW_NUMBERS = _list("CHW_NUMBERS") or ["+17405550199"]
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
-TRIAGE_MODEL = os.getenv("TRIAGE_MODEL", "claude-haiku-5-5").strip()
+
+# LLM brain that reads patient texts: ollama (local, default) | anthropic | rules
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").strip().lower()
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434").strip().rstrip("/")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b").strip()
+LLM_MODEL = os.getenv("LLM_MODEL", "claude-opus-5-5").strip()      # used when LLM_PROVIDER=anthropic
+LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "20"))                 # seconds, then keyword rules
 # Free-text answers to the booking questions (app/understand.py). On when there is a key;
 # FREE_TEXT=0 turns it off and the questions accept only exact answers, as before.
 UNDERSTAND_MODEL = os.getenv("UNDERSTAND_MODEL", "claude-haiku-5-5").strip()
@@ -34,4 +41,23 @@ ATHENA_BASE_URL = os.getenv("ATHENA_BASE_URL", "").strip().rstrip("/")   # overr
 ATHENA_ENABLED = bool(ATHENA_CLIENT_ID and ATHENA_CLIENT_SECRET)
 
 TWILIO_ENABLED = bool(TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN)
-DEV_SIMULATOR = (not TWILIO_ENABLED) or os.getenv("DEV_SIMULATOR", "") == "1"
+
+# SMS Gateway for Android (https://sms-gate.app): an Android phone with a SIM is the clinic number.
+ANDROID_GATEWAY_URL = os.getenv("ANDROID_GATEWAY_URL", "https://api.sms-gate.app/3rdparty/v1").strip().rstrip("/")
+ANDROID_GATEWAY_USER = os.getenv("ANDROID_GATEWAY_USER", "").strip()
+ANDROID_GATEWAY_PASSWORD = os.getenv("ANDROID_GATEWAY_PASSWORD", "").strip()
+ANDROID_SIGNING_KEY = os.getenv("ANDROID_SIGNING_KEY", "").strip()  # app: Settings > Webhooks > Signing Key
+ANDROID_ENABLED = bool(ANDROID_GATEWAY_USER and ANDROID_GATEWAY_PASSWORD)
+
+# Messages app on this Mac: texts go out from the linked iPhone's own number (SMS_PROVIDER=mac).
+MAC_ENABLED = sys.platform == "darwin"
+MAC_MESSAGES_DB = os.path.expanduser(os.getenv("MAC_MESSAGES_DB", "~/Library/Messages/chat.db").strip())
+# Only these numbers (plus CHW_NUMBERS) get CareLine replies; blank = anyone who texts the iPhone.
+MAC_ALLOWED_SENDERS = _list("MAC_ALLOWED_SENDERS")
+
+# Which service sends texts: "mac", "android" or "twilio". Default: Android if set up, else Twilio.
+SMS_PROVIDER = os.getenv("SMS_PROVIDER", "").strip().lower() or (
+    "android" if ANDROID_ENABLED else "twilio" if TWILIO_ENABLED else "dev")
+SMS_ENABLED = ((SMS_PROVIDER == "android" and ANDROID_ENABLED) or (SMS_PROVIDER == "twilio" and TWILIO_ENABLED)
+               or (SMS_PROVIDER == "mac" and MAC_ENABLED))
+DEV_SIMULATOR = (not SMS_ENABLED) or os.getenv("DEV_SIMULATOR", "") == "1"

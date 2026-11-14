@@ -40,6 +40,30 @@ CREATE TABLE IF NOT EXISTS bookings (
   created_at REAL
 );
 CREATE TABLE IF NOT EXISTS optouts (phone TEXT PRIMARY KEY, created_at REAL);
+-- One account per phone number: who they are and what they told us last time.
+CREATE TABLE IF NOT EXISTS patients (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  phone TEXT UNIQUE NOT NULL,
+  first_name TEXT,
+  last_name TEXT,
+  zip TEXT,
+  town TEXT,
+  income TEXT,
+  language TEXT,
+  created_at REAL,
+  last_seen REAL
+);
+-- Ride requests a health worker books (e.g. in Uber Health's dashboard) for a patient.
+CREATE TABLE IF NOT EXISTS rides (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  case_id INTEGER REFERENCES cases(id),
+  patient_phone TEXT NOT NULL,
+  pickup TEXT,
+  destination TEXT,
+  visit_ts REAL,
+  status TEXT NOT NULL DEFAULT 'requested',   -- requested | booked | cancelled
+  created_at REAL
+);
 -- athenahealth patient id per phone, so the name/date-of-birth question is asked only once.
 CREATE TABLE IF NOT EXISTS athena_patients (phone TEXT PRIMARY KEY, patient_id TEXT, created_at REAL);
 CREATE INDEX IF NOT EXISTS idx_cases_phone ON cases(patient_phone, status);
@@ -123,8 +147,9 @@ def list_cases(status: str | None = None):
     q = """SELECT c.*,
              (SELECT body FROM messages m WHERE m.case_id=c.id AND m.sender='patient'
               ORDER BY m.id DESC LIMIT 1) AS last_patient_message,
-             (SELECT COUNT(*) FROM bookings b WHERE b.case_id=c.id AND b.status='booked') AS booked
-           FROM cases c"""
+             (SELECT COUNT(*) FROM bookings b WHERE b.case_id=c.id AND b.status='booked') AS booked,
+             p.id AS patient_id, p.first_name, p.last_name
+           FROM cases c LEFT JOIN patients p ON p.phone = c.patient_phone"""
     args: tuple = ()
     if status:
         q += " WHERE c.status=?"
@@ -152,6 +177,12 @@ def case_messages(case_id: int):
     with connect() as c:
         return [dict(r) for r in c.execute(
             "SELECT * FROM messages WHERE case_id=? ORDER BY id", (case_id,)).fetchall()]
+
+
+def is_first_contact(phone: str) -> bool:
+    """True if we have never texted this phone before."""
+    with connect() as c:
+        return c.execute("SELECT 1 FROM messages WHERE to_phone=? LIMIT 1", (phone,)).fetchone() is None
 
 
 def phone_messages(phone: str, since_id: int = 0):
@@ -252,3 +283,46 @@ def save_athena_patient(phone: str, patient_id: str) -> None:
     with connect() as c:
         c.execute("INSERT OR REPLACE INTO athena_patients(phone, patient_id, created_at) VALUES (?,?,?)",
                   (phone, patient_id, now()))
+
+
+# ---------------------------------------------------------------- patient accounts
+def patient_code(patient_id: int) -> str:
+    """Short ID a person can read out on the phone, e.g. CL-1001."""
+    return f"CL-{1000 + patient_id}"
+
+
+def get_patient(phone: str):
+    with connect() as c:
+        return c.execute("SELECT * FROM patients WHERE phone=?", (phone,)).fetchone()
+
+
+def create_patient(phone: str, language: str = "en"):
+    t = now()
+    with connect() as c:
+        c.execute("INSERT OR IGNORE INTO patients(phone, language, created_at, last_seen) VALUES (?,?,?,?)",
+                  (phone, language, t, t))
+    return get_patient(phone)
+
+
+def update_patient(phone: str, **fields) -> None:
+    fields["last_seen"] = now()
+    cols = ", ".join(f"{k}=?" for k in fields)
+    with connect() as c:
+        c.execute(f"UPDATE patients SET {cols} WHERE phone=?", (*fields.values(), phone))
+
+
+# ---------------------------------------------------------------- rides
+def add_ride(case_id, phone: str, pickup: str, destination: str, visit_ts) -> int:
+    with connect() as c:
+        return c.execute("INSERT INTO rides(case_id, patient_phone, pickup, destination, visit_ts, created_at)"
+                         " VALUES (?,?,?,?,?,?)", (case_id, phone, pickup, destination, visit_ts, now())).lastrowid
+
+
+def case_rides(case_id: int):
+    with connect() as c:
+        return [dict(r) for r in c.execute("SELECT * FROM rides WHERE case_id=? ORDER BY id", (case_id,)).fetchall()]
+
+
+def set_ride_status(ride_id: int, status: str) -> None:
+    with connect() as c:
+        c.execute("UPDATE rides SET status=? WHERE id=?", (status, ride_id))

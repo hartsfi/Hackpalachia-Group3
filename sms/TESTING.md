@@ -13,21 +13,24 @@ uv run uvicorn app.main:app --port 8790
 ```
 
 Open http://127.0.0.1:8790/simulator?worker=1 (patient phone on the left, health worker phone on the right; without `?worker=1` only the patient's phone is shown)
-and http://127.0.0.1:8790/dashboard in another tab. Restart the server after pulling new code.
+and http://127.0.0.1:8790/dashboard in another tab. Restart the server after pulling new code. Each page load (and the **New patient**
+button) starts as a brand-new patient with an unused fictional number, so you always see the
+sign-up; type a number into the box to continue as someone you used before.
 To start over, stop the server and delete `sms/textbridge.db`.
 
 ### Booking a visit (user story 1)
 
 | # | Phone | Type | You should see |
 |---|-------|------|----------------|
-| 1 | Patient | `hi` | "What do you need care for, and what is your ZIP code or town?" |
+| 1 | Patient | `hi` | Welcome text, then "reply with your first and last name (or SKIP)" |
+| 1b | Patient | `Jane Doe` | "Thanks Jane! Your CareLine ID is CL-1001", then "What do you need care for…" |
 | 2 | Patient | `Columbus` | "Sorry, I could not find that place…" (asks again) |
 | 3 | Patient | `need a checkup, 45764` | "Got it: Nelsonville, OH 45764. Reply 1 if low income…" |
 | 4 | Patient | `1` | Up to 3 numbered visits: name, miles, next time. Mobile health unit first. |
 | 5 | Patient | `1` | "Booked: Nelsonville Mobile, Tue 11/17 10AM, Library parking lot… Call 740-555-0110…". Dashboard shows "booked". |
 | 6 | Patient | `RESCHEDULE`, then `2` | New times, then "Moved: …". |
 | 7 | Patient | `CANCEL VISIT` | "Your visit … is cancelled." |
-| 8 | Patient (new number, e.g. `+17405552222`) | `checkup in Nelsonville`, `2` | Options for "other insurance": clinics and hospitals instead of the mobile unit. |
+| 8 | Patient (new number, e.g. `+17405550124`) | `checkup in Nelsonville`, a name, `2` | Options for "other insurance": clinics and hospitals instead of the mobile unit. |
 
 **Slot taken:** use two patient numbers. Get both to the options list (steps 3–4) before either
 books, then book `1` on the first and `1` on the second. The second gets "Sorry, that time was
@@ -50,6 +53,9 @@ It is read as Nelsonville. Basic phones type a ZIP or town.
 | Patient | `STOP` | No reply from us (Twilio sends its own). Nothing more reaches that phone, even worker replies and reminders. `START` turns it back on. |
 | Patient (new number) | `hola, necesito una cita en Athens` | Replies in Spanish |
 
+**Returning user:** close the case from the dashboard, then text `hi` again from the same number:
+"Welcome back Jane!" with no sign-up. `MY ID` returns the ID and name.
+
 ### Health worker side
 
 | Phone | Type | You should see |
@@ -59,6 +65,13 @@ It is read as Nelsonville. Basic phones type a ZIP or town.
 | Worker | `#1 close` | Case closed |
 | Worker | `hello` | Hint about the `#case message` format |
 | Dashboard | Open a case, type, Send | Arrives on the patient's phone |
+
+### LLM brain on real-life messages
+
+With Ollama running (`ollama list` shows `llama3.1:8b`): `uv run python tools/check_llm.py` sends
+10 messages (fever in a misspelled town, insulin with no car, chest pain, blue lips, overdose,
+toothache, Spanish, hopelessness) and checks need, place and that every emergency is caught.
+`LLM_PROVIDER=rules uv run python tools/check_llm.py` shows what the keyword rules alone catch.
 
 ### Automatic check of every acceptance criterion
 
@@ -113,6 +126,70 @@ start the fake on 8796 and the server on 8797 with a fresh `DB_PATH`, then
    open slots in the next two weeks, that clinic simply isn't offered.
 
 The Preview sandbox is shared test data: never use real patient names or birthdays there.
+
+## Real SMS today from this Mac with your iPhone's number (no registration, 5 minutes)
+
+The Mac's Messages app sends and receives with the iPhone's own number, so no Twilio, Android
+phone or carrier registration is needed. Patients text the iPhone's normal number. You need a
+second phone (any kind) to play the patient.
+
+1. **iPhone:** Settings → Messages → **Text Message Forwarding** → switch on this Mac. Keep the
+   iPhone on, with signal, signed in to the same Apple ID.
+2. **Mac:** System Settings → Privacy & Security → **Full Disk Access** → switch on the app that
+   runs the server (Terminal, iTerm or Claude; add it with + if missing), then quit and reopen it.
+   This lets the server read incoming texts. The first send asks to let it control Messages: OK.
+3. **`.env`** in `sms/`:
+   ```
+   SMS_PROVIDER=mac
+   CLINIC_NUMBER=<the iPhone's own number, e.g. +17405551234>
+   # Strongly suggested: only these numbers get CareLine replies, so friends and family
+   # texting your personal number are left alone. Blank = everyone who texts the iPhone.
+   MAC_ALLOWED_SENDERS=+1<the patient test phone>
+   ```
+4. Check, then start the server:
+   ```bash
+   uv run python -m tools.mac_check +1<the patient test phone>   # reads Messages + sends a test text
+   uv run uvicorn app.main:app --port 8790
+   ```
+5. From the other phone, text `hi` to the iPhone's number. CareLine answers within a few seconds,
+   from the iPhone's number. `/health` shows `"sms": "mac"`.
+
+No tunnel or webhook is needed: the server reads new texts from the Messages database every
+2 seconds, starting from the newest one, so old conversations are never answered. The Mac must
+stay awake with Messages signed in.
+
+## Real SMS today with an Android phone (no carrier registration)
+
+An Android phone with a SIM becomes the clinic number, using the free open-source app
+**SMS Gateway for Android** (https://sms-gate.app). Texts go phone-to-phone over the SIM's own plan,
+so no Twilio or carrier registration is needed. You need a second phone to play the patient.
+
+1. **Phone:** any Android 5+ phone with a SIM that can text (a prepaid phone + plan works).
+   Keep it charged and on Wi-Fi or data.
+2. **App:** install "SMS Gateway for Android" (Google Play, or the APK from
+   https://github.com/capcom6/android-sms-gateway/releases). Open it, allow SMS permissions, and
+   turn off battery optimisation for it (Android settings → Apps → the app → Battery → Unrestricted).
+3. **Cloud server:** in the app, switch on **Cloud server** and tap the start/online switch. The
+   **Home** tab then shows a **username** and **password**.
+4. **Signing key:** in the app, **Settings → Webhooks → Signing Key**: copy it.
+5. **`.env`** in `sms/`:
+   ```
+   ANDROID_GATEWAY_USER=<username from the app>
+   ANDROID_GATEWAY_PASSWORD=<password from the app>
+   ANDROID_SIGNING_KEY=<signing key from the app>
+   SMS_PROVIDER=android
+   CLINIC_NUMBER=<the Android phone's own number, e.g. +17405551234>
+   PUBLIC_BASE_URL=<your https tunnel address>
+   ```
+6. Restart the server, then register the webhook so incoming texts reach the server:
+   ```bash
+   uv run python tools/android_setup.py          # prints: incoming texts now go to …/sms/android
+   uv run python tools/android_setup.py test +1<your other phone>   # the Android phone texts you
+   ```
+7. From the other phone, text `hi` to the Android phone's number. Replies come from the Android phone.
+
+Run `tools/android_setup.py` again whenever the tunnel address changes. `/health` shows
+`"sms": "android"` when it is active. Test without a phone: `tools/fake_android.py` (see its header).
 
 ## Level 2: real phones with a Twilio trial (free, ~15 minutes)
 

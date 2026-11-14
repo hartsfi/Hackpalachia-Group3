@@ -14,6 +14,9 @@ import sys
 import tempfile
 
 os.environ["DB_PATH"] = os.path.join(tempfile.mkdtemp(), "check.db")
+# This check is about understand.py (Claude reading booking answers), so the local LLM brain is
+# kept out of it: keyword triage only, nothing else that could read a place from the text.
+os.environ["LLM_PROVIDER"] = "rules"
 LIVE = "--live" in sys.argv
 if not LIVE:
     os.environ["ANTHROPIC_API_KEY"] = ""
@@ -34,9 +37,13 @@ def check(name, cond, detail=""):
 
 def text(phone, body):
     """Send a text as a patient; return the texts they got back."""
+    if db.get_patient(phone) is None:  # an existing account, so no sign-up step in these checks
+        db.create_patient(phone)
+        db.update_patient(phone, first_name="Test", last_name="Patient")
     before = len(db.phone_messages(phone))
     relay.handle_incoming(phone, body)
-    new = [m["body"] for m in db.phone_messages(phone)[before:] if m["to_phone"] == phone]
+    new = [m["body"] for m in db.phone_messages(phone)[before:]
+           if m["to_phone"] == phone and m["body"] != "Need a ride to your visit? Reply RIDE."]  # ride offer after booking
     for m in new:
         print("      > " + m.replace("\n", " / "))
     return new
@@ -61,7 +68,7 @@ if not LIVE:
     understand._ask = fake_ask
     config.UNDERSTAND_ENABLED = True
     SCRIPT.update({
-        "bad cough, im out in nelsonvile": {"town": "Nelsonville"},
+        "bad cough, im out in nlsnvl": {"town": "Nelsonville"},
         "im on medicaid": {"answer": "1"},
         "why do you need to know": {"answer": "unclear"},
         "the second one works": {"option": 2},
@@ -78,7 +85,7 @@ if LIVE and not understand.enabled():
 A, B, C, D = "+17405552001", "+17405552002", "+17405552003", "+17405552004"
 
 print("== Misspelled town in the first text")
-r = text(A, "bad cough, im out in nelsonvile")
+r = text(A, "bad cough, im out in nlsnvl")
 check("place understood and confirmed back", r and "Nelsonville, OH 45764" in r[-1])
 
 print("== Income in the patient's own words")
@@ -96,8 +103,10 @@ check("booked the option that was second in the list", second and second in r[-1
 print("== Answers that already parse never reach the model")
 n = len(calls)
 text(B, "need a checkup, 45764")
-text(B, "1")
-r = text(B, "1")
+opts = text(B, "1")
+# Pick the first visit the server books itself (real mobile clinic stops are call-to-book).
+pick = next((l[0] for l in opts[-1].split("\n") if l[:2] in ("1)", "2)", "3)") and "Mobile" not in l), "1")
+r = text(B, pick)
 if not LIVE:
     check("no model calls for ZIP, 1, 1", len(calls) == n, f"{len(calls) - n} calls")
 check("exact answers still book", r and r[-1].startswith("Booked:"))
@@ -145,7 +154,7 @@ if not LIVE:
     understand._ask = fake_ask
     n = len(calls)
     F = "+17405552006"
-    r = text(F, "bad cough, im out in nelsonvile")
+    r = text(F, "bad cough, im out in nlsnvl")
     check("misspelled town is not understood", r and "ZIP" in r[-1] and "Nelsonville" not in r[-1])
     text(F, "45764")
     r = text(F, "im on medicaid")

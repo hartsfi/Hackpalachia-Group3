@@ -82,8 +82,9 @@
 <body>
 <div class="top">
   <span class="sp"></span>
-  <label>Texting from <input id="num" value="+17405550123" aria-label="Patient phone number"></label>
+  <label>Texting from <input id="num" value="" aria-label="Patient phone number"></label>
   <button id="next" title="Switch to a new patient number, which starts a new conversation">New patient</button>
+  <button id="existing" title="A patient who already has an account, a saved town and a booked visit">Existing patient</button>
   <a id="toggle" href="?worker=1">Show health worker phone</a>
   <a href="/dashboard" target="_blank">Staff dashboard ↗</a>
 </div>
@@ -171,16 +172,21 @@ let workerNumber = "";
 const phones = [makePhone(() => numInput.value.trim(), "CL")];
 if (showWorker) phones.push(makePhone(() => workerNumber, "CL"));
 numInput.onchange = () => { phones[0].key = ""; phones[0].last = []; poll(); };
-document.getElementById("next").onclick = () => {
-  // Step to the next unused-looking number so the next text starts a fresh conversation.
-  const digits = numInput.value.replace(/\D/g, ""), next = String(BigInt(digits || "17405550123") + 1n);
-  numInput.value = "+" + next; numInput.onchange();
+async function newPatient() {
+  // A fictional number nobody has used yet, so the conversation starts with sign-up.
+  const { phone } = await (await fetch("/dev/new-phone")).json();
+  numInput.value = phone; numInput.onchange();
+}
+document.getElementById("next").onclick = newPatient;
+document.getElementById("existing").onclick = async () => {
+  const { phone } = await (await fetch("/dev/demo-patient", {method: "POST"})).json();
+  numInput.value = phone; numInput.onchange();
 };
 fetch("/dev/config").then(r => r.json()).then(c => {
   workerNumber = c.chws[0];
   const pretty = n => n.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3");
   phones.forEach(p => p.name.innerHTML = `CareLine <span>${esc(pretty(c.clinic))} ›</span>`);
-  poll();
+  newPatient();  // every page load starts as a brand-new patient
 });
 window.addEventListener("resize", fit);
 fit(); tick(); setInterval(tick, 15000); setInterval(poll, 1500);
