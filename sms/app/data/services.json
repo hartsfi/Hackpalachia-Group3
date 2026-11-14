@@ -1,29 +1,160 @@
 {
-  "_note": "SAMPLE clinics for the demo: names, addresses and phones (555-01xx numbers are fictional) are placeholders. Replace with real services from the data room before any real patient texts in. 'for': low = low income / Medicaid / uninsured, standard = other insurance or able to pay, all = both. 'short' is what fits in a 160-character text. Times are 24-hour, US Eastern.",
+  "_note": "SAMPLE clinics for the demo: names, addresses and phones (555-01xx numbers are fictional) are placeholders. Replace with real services from the data room before any real patient texts in. 'for': low = low income / Medicaid / uninsured, standard = other insurance or able to pay, all = both. 'short' is what fits in a 160-character text. Times are 24-hour, US Eastern. Optional 'athena' block: that clinic's open times and bookings come from athenahealth when ATHENA_CLIENT_ID/SECRET are set (departmentid required; providerid and appointmenttypeid optional, or reasonid). Run tools/athena_setup.py to list the ids in your practice. Without keys the clinic uses the mock calendar.",
   "services": [
-    {"id": "mobile-nelsonville", "name": "Mobile Health Unit (sample)", "short": "Nelsonville Mobile", "for": "low",
-     "address": "Library parking lot", "town": "Nelsonville", "phone": "740-555-0110",
-     "lat": 39.459, "lon": -82.231, "days": ["Tue", "Thu"], "times": ["10:00", "13:30"]},
-    {"id": "mobile-glouster", "name": "Mobile Health Unit (sample)", "short": "Glouster Mobile", "for": "low",
-     "address": "Community center lot", "town": "Glouster", "phone": "740-555-0110",
-     "lat": 39.503, "lon": -82.084, "days": ["Wed"], "times": ["10:00", "14:00"]},
-    {"id": "mobile-pomeroy", "name": "Mobile Health Unit (sample)", "short": "Pomeroy Mobile", "for": "low",
-     "address": "Courthouse lot", "town": "Pomeroy", "phone": "740-555-0110",
-     "lat": 39.028, "lon": -82.033, "days": ["Mon"], "times": ["10:00"]},
-    {"id": "free-athens", "name": "Free Evening Clinic (sample)", "short": "Athens Free Clinic", "for": "low",
-     "address": "12 Union St", "town": "Athens", "phone": "740-555-0111",
-     "lat": 39.329, "lon": -82.100, "days": ["Mon", "Fri"], "times": ["17:30"]},
-    {"id": "chc-athens", "name": "Community Health Center, sliding scale (sample)", "short": "Athens Health Ctr", "for": "all",
-     "address": "40 Elm St", "town": "Athens", "phone": "740-555-0112",
-     "lat": 39.331, "lon": -82.098, "days": ["Mon", "Tue", "Wed", "Thu", "Fri"], "times": ["09:00", "14:00"]},
-    {"id": "chc-mcarthur", "name": "Community Health Center, sliding scale (sample)", "short": "McArthur Health Ctr", "for": "all",
-     "address": "8 Main St", "town": "McArthur", "phone": "740-555-0113",
-     "lat": 39.247, "lon": -82.477, "days": ["Tue", "Thu"], "times": ["09:30"]},
-    {"id": "hosp-athens", "name": "Hospital Outpatient Clinic (sample)", "short": "Athens Hospital", "for": "standard",
-     "address": "55 Hospital Dr", "town": "Athens", "phone": "740-555-0114",
-     "lat": 39.322, "lon": -82.089, "days": ["Mon", "Tue", "Wed", "Thu", "Fri"], "times": ["08:30", "15:00"]},
-    {"id": "fam-logan", "name": "Family Medicine Office (sample)", "short": "Logan Family Med", "for": "standard",
-     "address": "21 Market St", "town": "Logan", "phone": "740-555-0115",
-     "lat": 39.540, "lon": -82.406, "days": ["Tue", "Thu"], "times": ["09:00"]}
+    {
+      "id": "mobile-nelsonville",
+      "name": "Mobile Health Unit (sample)",
+      "short": "Nelsonville Mobile",
+      "for": "low",
+      "address": "Library parking lot",
+      "town": "Nelsonville",
+      "phone": "740-555-0110",
+      "lat": 39.459,
+      "lon": -82.231,
+      "days": [
+        "Tue",
+        "Thu"
+      ],
+      "times": [
+        "10:00",
+        "13:30"
+      ]
+    },
+    {
+      "id": "mobile-glouster",
+      "name": "Mobile Health Unit (sample)",
+      "short": "Glouster Mobile",
+      "for": "low",
+      "address": "Community center lot",
+      "town": "Glouster",
+      "phone": "740-555-0110",
+      "lat": 39.503,
+      "lon": -82.084,
+      "days": [
+        "Wed"
+      ],
+      "times": [
+        "10:00",
+        "14:00"
+      ]
+    },
+    {
+      "id": "mobile-pomeroy",
+      "name": "Mobile Health Unit (sample)",
+      "short": "Pomeroy Mobile",
+      "for": "low",
+      "address": "Courthouse lot",
+      "town": "Pomeroy",
+      "phone": "740-555-0110",
+      "lat": 39.028,
+      "lon": -82.033,
+      "days": [
+        "Mon"
+      ],
+      "times": [
+        "10:00"
+      ]
+    },
+    {
+      "id": "free-athens",
+      "name": "Free Evening Clinic (sample)",
+      "short": "Athens Free Clinic",
+      "for": "low",
+      "address": "12 Union St",
+      "town": "Athens",
+      "phone": "740-555-0111",
+      "lat": 39.329,
+      "lon": -82.1,
+      "days": [
+        "Mon",
+        "Fri"
+      ],
+      "times": [
+        "17:30"
+      ]
+    },
+    {
+      "id": "chc-athens",
+      "name": "Community Health Center, sliding scale (sample)",
+      "short": "Athens Health Ctr",
+      "for": "all",
+      "address": "40 Elm St",
+      "town": "Athens",
+      "phone": "740-555-0112",
+      "lat": 39.331,
+      "lon": -82.098,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "times": [
+        "09:00",
+        "14:00"
+      ],
+      "athena": {
+        "departmentid": "1"
+      }
+    },
+    {
+      "id": "chc-mcarthur",
+      "name": "Community Health Center, sliding scale (sample)",
+      "short": "McArthur Health Ctr",
+      "for": "all",
+      "address": "8 Main St",
+      "town": "McArthur",
+      "phone": "740-555-0113",
+      "lat": 39.247,
+      "lon": -82.477,
+      "days": [
+        "Tue",
+        "Thu"
+      ],
+      "times": [
+        "09:30"
+      ]
+    },
+    {
+      "id": "hosp-athens",
+      "name": "Hospital Outpatient Clinic (sample)",
+      "short": "Athens Hospital",
+      "for": "standard",
+      "address": "55 Hospital Dr",
+      "town": "Athens",
+      "phone": "740-555-0114",
+      "lat": 39.322,
+      "lon": -82.089,
+      "days": [
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri"
+      ],
+      "times": [
+        "08:30",
+        "15:00"
+      ]
+    },
+    {
+      "id": "fam-logan",
+      "name": "Family Medicine Office (sample)",
+      "short": "Logan Family Med",
+      "for": "standard",
+      "address": "21 Market St",
+      "town": "Logan",
+      "phone": "740-555-0115",
+      "lat": 39.54,
+      "lon": -82.406,
+      "days": [
+        "Tue",
+        "Thu"
+      ],
+      "times": [
+        "09:00"
+      ]
+    }
   ]
 }

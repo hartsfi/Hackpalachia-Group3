@@ -7,15 +7,19 @@ Patient booking conversation (case.stage):
   ask_where   what care do you need, and your ZIP or town?
   ask_income  1 = low income / Medicaid / no insurance, 2 = other insurance or can pay
   ask_slot    up to three numbered visits (name, distance, next time); reply a number
+  ask_identity  athenahealth clinics only, once per phone: name + date of birth for the patient record
   booked / done / None   free texting with the health worker
+Replies in the patient's own words ("im on medicaid", "the tuesday one") are mapped to the exact
+answer by understand.py when Claude is on; the questions, replies and bookings stay scripted.
 Emergencies skip all of this: 911 / 988 first, CHWs alerted, no booking.
 Every text to a patient is kept within 160 GSM-7 characters (no links).
 """
+import datetime as dt
 import json
 import logging
 import re
 
-from . import config, db, services, sms
+from . import athena, config, db, services, sms, understand
 from .triage import CRISIS_WORDS, EMERGENCY_WORDS, triage
 
 log = logging.getLogger("relay")
@@ -62,6 +66,12 @@ TEXT = {
                 "VISIT or RESCHEDULE changes a visit. STOP to opt out. Emergency: 911",
         "resubscribed": "You will get TextBridge texts again. Text what care you need and your "
                         "ZIP code or town.",
+        "identity": "To book at {short}, reply with your first and last name and date of birth, "
+                    "like: Jane Doe 03/14/1980",
+        "identity_again": "Please send first name, last name and date of birth as MM/DD/YYYY, like: "
+                          "Jane Doe 03/14/1980",
+        "system_down": "We could not reach the clinic's booking system. A health worker will text "
+                       "you to finish this.",
     },
     # Spanish avoids á í ó ú so every text stays in the 160-character GSM-7 alphabet.
     "es": {
@@ -97,6 +107,12 @@ TEXT = {
                 "CAMBIAR CITA. STOP para salir. Emergencia: 911",
         "resubscribed": "Recibira mensajes de TextBridge otra vez. Escriba que atencion "
                         "necesita y su codigo postal.",
+        "identity": "Para reservar en {short}, responda con su nombre, apellido y fecha de "
+                    "nacimiento, asi: Ana Diaz 03/14/1980",
+        "identity_again": "Envie nombre, apellido y fecha de nacimiento como MM/DD/AAAA, asi: Ana "
+                          "Diaz 03/14/1980",
+        "system_down": "No pudimos conectar con el sistema de citas de la clinica. Un trabajador "
+                       "de salud le escribira para terminar.",
     },
 }
 
@@ -182,12 +198,16 @@ def _from_patient(phone: str, body: str) -> None:
 
     db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     stage = case["stage"]
+    # "im on medicaid", "the tuesday one": turned into the exact answer the question expects.
+    body, word = understand.answer(case, body, word)
     if stage == "ask_where":
         _on_where(case, body)
     elif stage == "ask_income":
         _on_income(case, word)
     elif stage == "ask_slot":
         _on_slot(case, word)
+    elif stage == "ask_identity":
+        _on_identity(case, body)
     else:
         _notify_chws(case, f"[#{case_id}] {_tail(phone)}: {body}")
 
@@ -199,7 +219,7 @@ def _new_case(phone: str, body: str) -> None:
     case = db.get_case(case_id)
     _notify_chws(case, f"[#{case_id} {tri['urgency'].upper()} {tri['category']}] {_tail(phone)}: {body}\n"
                        f"Summary: {tri['summary']}\nReply: #{case_id} your message")
-    place = services.find_place(body)
+    place = services.find_place(body) or understand.place(body)  # e.g. a misspelled town
     if place:
         _ask_income(case, place)
     else:
@@ -276,22 +296,108 @@ def _on_slot(case, word: str) -> None:
         return
 
     pick = opts[int(word) - 1]
-    booking_id = db.book(case["id"], phone, pick["service_id"], pick["ts"])
+    if services.uses_athena(pick["service_id"]) and not db.athena_patient(phone):
+        db.update_case(case["id"], stage="ask_identity", pick=json.dumps(pick))
+        sms.send(phone, _t(lang, "identity", short=pick["short"]), case["id"], "system")
+        return
+    _book_pick(case, pick)
+
+
+def _book_pick(case, pick: dict) -> None:
+    lang, phone, sid = case["language"], case["patient_phone"], pick["service_id"]
+    ext = None
+    if services.uses_athena(sid):
+        try:
+            ok = athena.client.book(pick["ext"], db.athena_patient(phone),
+                                    services.clinics()[sid]["athena"], pick.get("atype"))
+        except Exception as e:
+            _booking_down(case, e, f"book {pick['short']} {services.when(pick['ts'])}")
+            return
+        services.forget_athena_slots(sid)
+        if not ok:  # taken in athenahealth in the meantime
+            _offer(case, services.next_times(sid, _place_of(case)), "taken", short=pick["short"])
+            return
+        ext = pick["ext"]
+    booking_id = db.book(case["id"], phone, sid, pick["ts"], ext)
     if booking_id is None:  # someone else got it first
-        _offer(case, services.next_times(pick["service_id"], _place_of(case)), "taken", short=pick["short"])
+        _offer(case, services.next_times(sid, _place_of(case)), "taken", short=pick["short"])
         return
 
-    fields = _visit_fields(pick["service_id"], pick["ts"])
+    fields = _visit_fields(sid, pick["ts"])
     if case["resched_id"]:
-        db.cancel_booking(case["resched_id"])
+        old = db.get_booking(case["resched_id"])
+        try:
+            _cancel_external(old)
+        except Exception as e:  # new visit is booked; a person must cancel the old one
+            log.error("could not cancel old athenahealth visit %s: %s", old["external_id"], e)
+            _notify_chws(case, f"[#{case['id']}] please cancel the old visit in athenahealth: "
+                               f"appointment {old['external_id']}")
+        db.cancel_booking(old["id"])
         sms.send(phone, _t(lang, "moved", **fields), case["id"], "system")
         note = "rescheduled to"
     else:
         sms.send(phone, _t(lang, "booked", **fields), case["id"], "system")
         note = "booked"
-    db.update_case(case["id"], stage="booked", offers=None, resched_id=None)
+    db.update_case(case["id"], stage="booked", offers=None, resched_id=None, pick=None)
     _notify_chws(case, f"[#{case['id']}] {note} {fields['short']} {fields['when']} "
-                       f"({case['income']} income, {case['zip']})")
+                       f"({case['income']} income, {case['zip']})" + (f" athena appt {ext}" if ext else ""))
+
+
+DOB = re.compile(r"(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})")
+
+
+def _parse_identity(text: str) -> tuple[str, str, str] | None:
+    """'Jane Q Doe 3/14/1980' -> ('Jane', 'Doe', '03/14/1980'); None if it doesn't look right."""
+    m = DOB.search(text)
+    if not m:
+        return None
+    names = re.findall(r"[A-Za-zÀ-ÿ'’-]+", text[:m.start()])
+    if len(names) < 2:
+        return None
+    mo, d, y = map(int, m.groups())
+    today = dt.date.today()
+    if y < 100:
+        y += 1900 if y > today.year % 100 else 2000
+    try:
+        born = dt.date(y, mo, d)
+    except ValueError:
+        return None
+    if not (today.year - 120 < y and born < today):
+        return None
+    return names[0].title(), names[-1].title(), born.strftime("%m/%d/%Y")
+
+
+def _on_identity(case, body: str) -> None:
+    lang, phone = case["language"], case["patient_phone"]
+    parsed = _parse_identity(body)
+    if not parsed:
+        sms.send(phone, _t(lang, "identity_again"), case["id"], "system")
+        return
+    pick = json.loads(case["pick"])
+    first, last, dob = parsed
+    try:
+        pid = athena.client.find_or_create_patient(
+            first, last, dob, phone, case["zip"] or "", services.clinics()[pick["service_id"]]["athena"]["departmentid"])
+    except Exception as e:
+        _booking_down(case, e, "find or create the patient record")
+        return
+    db.save_athena_patient(phone, pid)
+    db.update_case(case["id"], stage="ask_slot", pick=None)
+    _book_pick(db.get_case(case["id"]), pick)
+
+
+def _cancel_external(booking) -> None:
+    if booking and booking["external_id"] and services.uses_athena(booking["service_id"]):
+        athena.client.cancel(booking["external_id"], db.athena_patient(booking["patient_phone"]))
+        services.forget_athena_slots(booking["service_id"])
+
+
+def _booking_down(case, err: Exception, what: str) -> None:
+    log.error("athenahealth failed (%s) for case %s: %s", what, case["id"], err)
+    services.forget_athena_slots()  # don't keep offering times we just failed to reach
+    db.update_case(case["id"], stage="done", offers=None, pick=None)
+    sms.send(case["patient_phone"], _t(case["language"], "system_down"), case["id"], "system")
+    _notify_chws(case, f"[#{case['id']}] athenahealth is not answering; please {what} by phone.")
 
 
 def _change_visit(phone: str, body: str, word: str, case) -> None:
@@ -309,6 +415,11 @@ def _change_visit(phone: str, body: str, word: str, case) -> None:
         return
     fields = _visit_fields(booking["service_id"], booking["start_ts"])
     if word in CANCEL_VISIT:
+        try:
+            _cancel_external(booking)
+        except Exception as e:
+            _booking_down(case, e, f"cancel {fields['short']} {fields['when']}")
+            return
         db.cancel_booking(booking["id"])
         db.update_case(case_id, stage="done", offers=None, resched_id=None)
         sms.send(phone, _t(lang, "cancelled", **fields), case_id, "system")

@@ -101,6 +101,9 @@ Real phones over Twilio are not tested yet.
 | Plain SMS only | Done | Every patient text is at most 160 characters in the GSM-7 alphabet (one SMS segment), with no links. Spanish replies avoid á/í/ó/ú for the same reason. |
 | Opt out | Done | STOP (and the other carrier keywords) stops every text from the server, including reminders and health worker replies. START opts back in. |
 
-Assumptions taken: location is typed (or shared from a smartphone); booking uses a mock clinic
-calendar we control. Clinics in `sms/app/data/services.json` are sample data to be replaced with
+Assumptions taken: location is typed (or shared from a smartphone). Booking method: both. Clinics
+connected to athenahealth book in athenaOne (open slots, book, cancel, reschedule via the
+athenahealth API, checked against a local fake of the API; not yet against the real Preview
+sandbox); the rest use a mock clinic calendar we control. athenahealth needs a patient record, so
+patients booking there are asked once for name and date of birth. Clinics in `sms/app/data/services.json` are sample data to be replaced with
 the data room's real services.

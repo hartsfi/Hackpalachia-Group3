@@ -75,12 +75,60 @@ text is at most 160 characters, one SMS segment, with no links.
 Without `ANTHROPIC_API_KEY`, needs are sorted by keyword rules. Put a key in `.env` to have Claude
 sort and summarise messages instead.
 
+## athenahealth booking
+
+Clinics with an `athena` block in `app/data/services.json` (now: Athens Health Ctr →
+department 1) take their open times from athenahealth and book there. The first time a patient
+books one, they are asked once for name and date of birth, so athenahealth can find or create
+their patient record. Everything else stays the same.
+
+**Without athenahealth keys (fake athenahealth on your laptop):**
+
+```bash
+cd sms
+uv run uvicorn tools.fake_athena:app --port 8796
+# second terminal:
+ATHENA_CLIENT_ID=x ATHENA_CLIENT_SECRET=x ATHENA_BASE_URL=http://127.0.0.1:8796 \
+  uv run uvicorn app.main:app --port 8790
+```
+
+In the simulator: `checkup in Athens`, `2`, pick the "Athens Health Ctr" number, then
+`Jane Doe 03/14/1980`. You get "Booked: Athens Health Ctr…", and http://127.0.0.1:8796/_state
+shows the booking on the athenahealth side. `RESCHEDULE` and `CANCEL VISIT` update it there too.
+Automatic check (14 checks, incl. a slot taken at the front desk and athenahealth being down):
+start the fake on 8796 and the server on 8797 with a fresh `DB_PATH`, then
+`python3 tools/check_athena.py`.
+
+**With the real athenahealth Preview sandbox:**
+
+1. Sign up at https://developer.athenahealth.com, create an app with 2-legged (client
+   credentials) access, and copy its Preview client id and secret.
+2. In `.env`: `ATHENA_CLIENT_ID`, `ATHENA_CLIENT_SECRET`, `ATHENA_PRACTICE_ID=195900` (the
+   shared Preview practice), `ATHENA_ENV=preview`. Leave `ATHENA_BASE_URL` blank.
+3. `uv run python tools/athena_setup.py` lists the practice's departments, providers and
+   appointment types; `uv run python tools/athena_setup.py open 1` lists open slots in
+   department 1. Put a department with open slots into the clinic's `athena` block
+   (add `"providerid"` / `"appointmenttypeid"` to narrow it).
+4. Restart the server and book an Athens Health Ctr visit as above. If a department has no
+   open slots in the next two weeks, that clinic simply isn't offered.
+
+The Preview sandbox is shared test data: never use real patient names or birthdays there.
+
 ## Level 2: real phones with a Twilio trial (free, ~15 minutes)
+
+**Only one phone?** Your phone is the patient; the health worker stays on the laptop. Leave
+`CHW_NUMBERS=+17405550199` (a fictional 555-01xx number: those never go to Twilio) and add
+`DEV_SIMULATOR=1` to `.env`. Worker texts then appear on the simulator's worker phone, and you can
+answer there (`#1 …`) or from the dashboard. Every reply reaches your real phone over Twilio.
+Turn `DEV_SIMULATOR` off again before a public demo: while it is on, anyone who finds the address
+can post fake texts to `/dev/text`.
+
+**Two phones?** Put the second phone's number in `CHW_NUMBERS` and it gets the worker texts for real.
 
 1. Sign up at twilio.com and get a trial phone number (pick a 740 area code if offered).
 2. Verify every phone that will take part. Trial accounts can only text verified numbers.
 3. In `.env`: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `CLINIC_NUMBER` (the Twilio number),
-   `CHW_NUMBERS` (the phone playing the health worker).
+   `CHW_NUMBERS` (the phone playing the health worker, or leave the fictional one, see above).
 4. Public address: `ngrok http 8790`, then set `PUBLIC_BASE_URL` to the ngrok https URL.
 5. Restart the server. Twilio console → Phone Numbers → your number → Messaging: "A message comes
    in" → Webhook, `POST https://<ngrok-url>/sms/inbound`.

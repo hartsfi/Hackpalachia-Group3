@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS messages (
   sid TEXT,
   created_at REAL
 );
--- Mock clinic calendar: one patient per slot. The partial unique index is what
+-- Clinic calendar: one patient per slot. The partial unique index (created in init) is what
 -- makes "slot taken in the meantime" safe even if two people pick it at once.
 CREATE TABLE IF NOT EXISTS bookings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,8 +39,9 @@ CREATE TABLE IF NOT EXISTS bookings (
   reminded INTEGER NOT NULL DEFAULT 0,
   created_at REAL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uq_slot ON bookings(service_id, start_ts) WHERE status='booked';
 CREATE TABLE IF NOT EXISTS optouts (phone TEXT PRIMARY KEY, created_at REAL);
+-- athenahealth patient id per phone, so the name/date-of-birth question is asked only once.
+CREATE TABLE IF NOT EXISTS athena_patients (phone TEXT PRIMARY KEY, patient_id TEXT, created_at REAL);
 CREATE INDEX IF NOT EXISTS idx_cases_phone ON cases(patient_phone, status);
 CREATE INDEX IF NOT EXISTS idx_messages_case ON messages(case_id);
 """
@@ -53,7 +54,9 @@ CASE_EXTRAS = {
     "town": "TEXT",
     "offers": "TEXT",       # JSON list of visit options last texted to the patient
     "resched_id": "INTEGER",  # booking being moved, kept until the new one is picked
+    "pick": "TEXT",         # JSON of the visit picked while we ask name + date of birth (athenahealth)
 }
+BOOKING_EXTRAS = {"external_id": "TEXT"}  # athenahealth appointmentid
 
 
 def connect() -> sqlite3.Connection:
@@ -69,6 +72,15 @@ def init() -> None:
         for col, typ in CASE_EXTRAS.items():
             if col not in have:
                 c.execute(f"ALTER TABLE cases ADD COLUMN {col} {typ}")
+        have = {r[1] for r in c.execute("PRAGMA table_info(bookings)")}
+        for col, typ in BOOKING_EXTRAS.items():
+            if col not in have:
+                c.execute(f"ALTER TABLE bookings ADD COLUMN {col} {typ}")
+        # One booking per slot: per start time for mock clinics, per athenahealth appointment id
+        # for athena clinics (two providers can share a start time).
+        c.execute("DROP INDEX IF EXISTS uq_slot")
+        c.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_slot_ext ON bookings"
+                  "(service_id, start_ts, IFNULL(external_id, '')) WHERE status='booked'")
 
 
 def now() -> float:
@@ -151,21 +163,28 @@ def phone_messages(phone: str, since_id: int = 0):
 
 
 # ---------------------------------------------------------------- bookings
+def taken_external(service_id: str) -> set[str]:
+    with connect() as c:
+        return {r[0] for r in c.execute(
+            "SELECT external_id FROM bookings WHERE service_id=? AND status='booked' AND external_id IS NOT NULL",
+            (service_id,))}
+
+
 def taken_slots(service_id: str) -> set[float]:
     with connect() as c:
         return {r[0] for r in c.execute(
             "SELECT start_ts FROM bookings WHERE service_id=? AND status='booked'", (service_id,))}
 
 
-def book(case_id: int, phone: str, service_id: str, start_ts: float) -> int | None:
+def book(case_id: int, phone: str, service_id: str, start_ts: float, external_id: str | None = None) -> int | None:
     """Returns the booking id, or None when someone else holds the slot."""
     try:
         with connect() as c:
             # Booked less than a day ahead: no separate 24-hour reminder is needed.
             reminded = 1 if start_ts - now() <= 24 * 3600 else 0
             cur = c.execute(
-                "INSERT INTO bookings(case_id, patient_phone, service_id, start_ts, reminded, created_at)"
-                " VALUES (?,?,?,?,?,?)", (case_id, phone, service_id, start_ts, reminded, now()))
+                "INSERT INTO bookings(case_id, patient_phone, service_id, start_ts, reminded, created_at, external_id)"
+                " VALUES (?,?,?,?,?,?,?)", (case_id, phone, service_id, start_ts, reminded, now(), external_id))
             return cur.lastrowid
     except sqlite3.IntegrityError:
         return None
@@ -220,3 +239,16 @@ def opt_in(phone: str) -> None:
 def is_opted_out(phone: str) -> bool:
     with connect() as c:
         return c.execute("SELECT 1 FROM optouts WHERE phone=?", (phone,)).fetchone() is not None
+
+
+# ---------------------------------------------------------------- athenahealth patients
+def athena_patient(phone: str) -> str | None:
+    with connect() as c:
+        r = c.execute("SELECT patient_id FROM athena_patients WHERE phone=?", (phone,)).fetchone()
+        return r[0] if r else None
+
+
+def save_athena_patient(phone: str, patient_id: str) -> None:
+    with connect() as c:
+        c.execute("INSERT OR REPLACE INTO athena_patients(phone, patient_id, created_at) VALUES (?,?,?)",
+                  (phone, patient_id, now()))
