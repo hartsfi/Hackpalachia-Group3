@@ -52,15 +52,15 @@ TEXT = {
                       "one up.",
         "declined": "OK. A health worker will text you here to find a time that works.",
         "taken": "Sorry, that time was just taken. Other times at {short}, reply 1-{n} (0 = none):",
-        "booked": "Booked: {short}, {when}, {address}, {town}. Call {phone}. Text CANCEL VISIT "
-                  "or RESCHEDULE to change.",
-        "moved": "Moved: {short}, {when}, {address}, {town}. Call {phone}. Old time cancelled.",
+        "booked": "Booked (ID {id}): {short}, {when}, {address}, {town}. Call {phone}. Reply 2 to cancel, "
+                  "3 to reschedule.",
+        "moved": "Moved (ID {id}): {short}, {when}, {address}, {town}. Call {phone}. Old time cancelled.",
         "cancelled": "Your visit {when} at {short} is cancelled. Text us anytime to book again.",
         "resched": "Pick a new time. Your visit {when} stays booked until you choose.",
         "kept": "OK, your visit {when} at {short} is still booked.",
         "no_booking": "You have no upcoming visit. Text what care you need and your ZIP to book.",
-        "reminder": "Reminder: visit {when} at {short}, {address}, {town}. Call {phone}. Text "
-                    "CANCEL VISIT or RESCHEDULE to change.",
+        "reminder": "Reminder (ID {id}): visit {when} at {short}, {address}, {town}. Call {phone}. Reply 2 to "
+                    "cancel, 3 to reschedule.",
         "emergency": "If someone is in danger right now, call 911. We are alerting a health "
                      "worker now.",
         "crisis": "You are not alone. Call or text 988 any time to reach the Suicide & Crisis "
@@ -72,7 +72,7 @@ TEXT = {
         "welcome": "CareLine health line: replies to your texts, visit bookings and reminders. "
                    "Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
         "menu": "What do you need? Reply a number:\n1 See a doctor\n2 Ride to a visit\n3 Medicine/pharmacy\n"
-                "4 Mobile clinic\n5 My visit\n6 Health worker\nEmergency: call 911",
+                "4 Mobile clinic\n5 My visit\nEmergency: call 911",
         "welcome_back_menu": "Welcome back {first}!",
         "chw_soon": "OK. A health worker will text you here soon.",
         "handoff": "Thanks. A health worker will text you back here soon. Text MY VISIT for your visit or "
@@ -90,13 +90,16 @@ TEXT = {
         "ride_pickup": "What address should the driver pick you up at? Street and town, like 12 Main St, "
                        "Nelsonville.",
         "ride_pickup_again": "Please send the street address and town for pickup, like 12 Main St, Nelsonville.",
-        "ride_ok": "Got it. A health worker will book your ride and text you the pickup time.",
+        "ride_ok": "Ride requested (ID {rid}): pickup at {pickup} for your {when} visit at {short}. Be ready by "
+                   "{ready}. We will text to confirm.",
+        "ride_ok_novisit": "Ride requested (ID {rid}): pickup at {pickup}. A health worker will text you the "
+                           "pickup time.",
         "ride_none": "OK, no ride. Text RIDE any time if you need one.",
         "where_med": "To find a pharmacy near you, what is your ZIP code or town?",
         "where_need": "Got it. What is your ZIP code or town, so we can find care near you?",
         "welcome_back_visit": "Welcome back {first}! Your next visit: {when}, {short}. Text what you need, or "
                               "MY VISIT for details.",
-        "my_visit": "Your next visit: {when}, {short}, {address}, {town}. Call {phone}. Reply 2 to cancel, "
+        "my_visit": "Your next visit (ID {id}): {when}, {short}, {address}, {town}. Call {phone}. Reply 2 to cancel, "
                     "3 to reschedule.",
         "no_visit": "You have no upcoming visit. Text what care you need to book one.",
         "pharm_header": "Pharmacies near you (call first):",
@@ -140,16 +143,16 @@ TEXT = {
                       "para buscar una.",
         "declined": "Bien. Un trabajador de salud le escribira aqui para buscar una hora.",
         "taken": "Esa hora ya se tomo. Otras horas en {short}, responda 1-{n} (0 = ninguna):",
-        "booked": "Reservado: {short}, {when}, {address}, {town}. Tel {phone}. CANCELAR CITA o "
-                  "CAMBIAR CITA para cambiar.",
-        "moved": "Cambiado: {short}, {when}, {address}, {town}. Tel {phone}. La hora anterior "
+        "booked": "Reservado (ID {id}): {short}, {when}, {address}, {town}. Tel {phone}. Responda 2 para "
+                  "cancelar, 3 para cambiarla.",
+        "moved": "Cambiado (ID {id}): {short}, {when}, {address}, {town}. Tel {phone}. La hora anterior "
                  "se cancelo.",
         "cancelled": "Su cita {when} en {short} esta cancelada. Escribanos para reservar otra.",
         "resched": "Elija una nueva hora. Su cita {when} sigue reservada hasta que elija.",
         "kept": "Bien, su cita {when} en {short} sigue reservada.",
         "no_booking": "No tiene citas. Escriba que atencion necesita y su codigo postal.",
-        "reminder": "Recordatorio: cita {when} en {short}, {address}, {town}. Tel {phone}. "
-                    "CANCELAR CITA o CAMBIAR CITA para cambiar.",
+        "reminder": "Recordatorio (ID {id}): cita {when} en {short}, {address}, {town}. Tel {phone}. "
+                    "Responda 2 para cancelar, 3 para cambiarla.",
         "emergency": "Si alguien esta en peligro ahora, llame al 911. Estamos avisando a un "
                      "trabajador de salud.",
         "crisis": "No esta solo. Llame o escriba al 988 (oprima 2 para español). Si esta en "
@@ -161,7 +164,7 @@ TEXT = {
         "welcome": "Linea de salud CareLine: respuestas, citas y recordatorios. Pueden aplicar "
                    "tarifas de mensajes y datos. HELP para ayuda, STOP para salir.",
         "menu": "¿Que necesita? Responda un numero:\n1 Ver a un medico\n2 Transporte\n3 Medicina/farmacia\n"
-                "4 Clinica movil\n5 Mi cita\n6 Trabajador de salud\nEmergencia: 911",
+                "4 Clinica movil\n5 Mi cita\nEmergencia: 911",
         "welcome_back_menu": "¡Bienvenido otra vez {first}!",
         "chw_soon": "Bien. Un trabajador de salud le escribira aqui pronto.",
         "handoff": "Gracias. Un trabajador de salud le escribira aqui pronto. Escriba MI CITA para su "
@@ -179,13 +182,16 @@ TEXT = {
         "ride_ask_or": "O responda 1 y un trabajador de salud le reservara un viaje. Responda 0 si no lo necesita.",
         "ride_pickup": "¿En que direccion le recoge el conductor? Calle y pueblo, asi: 12 Main St, Nelsonville.",
         "ride_pickup_again": "Envie la calle y el pueblo para recogerle, asi: 12 Main St, Nelsonville.",
-        "ride_ok": "Listo. Un trabajador de salud reservara su viaje y le escribira la hora de recogida.",
+        "ride_ok": "Viaje pedido (ID {rid}): recogida en {pickup} para su cita {when} en {short}. Este listo "
+                   "a las {ready}. Le confirmaremos.",
+        "ride_ok_novisit": "Viaje pedido (ID {rid}): recogida en {pickup}. Un trabajador de salud le escribira "
+                           "la hora.",
         "ride_none": "Bien, sin viaje. Escriba RIDE si lo necesita.",
         "where_med": "Para buscar una farmacia cerca, ¿cual es su codigo postal o pueblo?",
         "where_need": "Entendido. ¿Cual es su codigo postal o pueblo, para buscar atencion cerca?",
         "welcome_back_visit": "Bienvenido otra vez {first}! Su proxima cita: {when}, {short}. Escriba que "
                               "necesita, o MY VISIT para detalles.",
-        "my_visit": "Su proxima cita: {when}, {short}, {address}, {town}. Tel {phone}. Responda 2 para "
+        "my_visit": "Su proxima cita (ID {id}): {when}, {short}, {address}, {town}. Tel {phone}. Responda 2 para "
                     "cancelar, 3 para cambiarla.",
         "no_visit": "No tiene citas. Escriba que atencion necesita para reservar una.",
         "pharm_header": "Farmacias cerca (llame primero):",
@@ -235,6 +241,7 @@ def _notify_chws(case, text: str) -> None:
 
 
 def handle_incoming(from_phone: str, body: str) -> None:
+    from_phone = sms.normalize(from_phone)  # "17405550133", "(740) 555-0133" -> "+17405550133": one person
     body = (body or "").strip()
     if not body:
         return
@@ -507,13 +514,18 @@ def _on_pickup(case, body: str) -> None:
         dest, when, ts = f"{f['short']}, {f['address']}, {f['town']}", f["when"], b["start_ts"]
     else:
         dest, when, ts = "no visit booked yet", "", None
-    db.add_ride(case["id"], phone, body.strip()[:200], dest, ts)
-    db.update_case(case["id"], stage="booked" if b else "done")
-    sms.send(phone, _t(lang, "ride_ok"), case["id"], "system")
+    rid = ride_code(db.add_ride(case["id"], phone, body.strip()[:200], dest, ts))
+    db.update_case(case["id"], stage="ask_visit" if b else "done")
+    if b:
+        ready = services.when(ts - 45 * 60).rsplit(" ", 1)[1]  # 45 minutes before the visit
+        sms.send(phone, _fit(lang, "ride_ok", rid=rid, pickup=body.strip()[:60], when=when,
+                             short=f["short"], ready=ready), case["id"], "system")
+    else:
+        sms.send(phone, _fit(lang, "ride_ok_novisit", rid=rid, pickup=body.strip()[:60]), case["id"], "system")
     patient = db.get_patient(phone)
     who = " ".join(x for x in (patient["first_name"], patient["last_name"]) if x) if patient else ""
     code = db.patient_code(patient["id"]) if patient else ""
-    _notify_chws(case, f"[#{case['id']}] RIDE request: {who or _tail(phone)} {code}. Pickup: {body.strip()[:80]}. "
+    _notify_chws(case, f"[#{case['id']}] RIDE request {rid}: {who or _tail(phone)} {code}. Pickup: {body.strip()[:80]}. "
                        f"To: {dest}{' for ' + when if when else ''}. Book it in Uber Health, then text "
                        f"#{case['id']} the pickup time.")
 
@@ -531,7 +543,7 @@ def _send_my_visit(phone: str, case, body: str, log: bool = True) -> None:
     if vcase["status"] != "open":
         db.update_case(vcase["id"], status="open")
     db.update_case(vcase["id"], stage="ask_visit")
-    sms.send(phone, _t(lang, "my_visit", **_visit_fields(b["service_id"], b["start_ts"])), vcase["id"], "system")
+    sms.send(phone, _fit(lang, "my_visit", **_visit_fields(b["service_id"], b["start_ts"], b["id"])), vcase["id"], "system")
 
 
 def _is_free_text(word: str) -> bool:
@@ -629,10 +641,6 @@ def _on_menu(case, word: str, body: str, tri: dict | None) -> None:
         _send_mobile_route(phone, case, body, log=False)  # stays on the menu: they can pick again
     elif word == "5":
         _send_my_visit(phone, case, body, log=False)
-    elif word == "6":
-        db.update_case(case["id"], stage="done")
-        sms.send(phone, _t(lang, "chw_soon"), case["id"], "system")
-        _notify_chws(case, f"[#{case['id']}] {_tail(phone)} asked to talk to a health worker. Reply: #{case['id']} your message")
     elif word.isdigit() and len(word) <= 2:  # a menu number we don't have (a ZIP falls through below)
         sms.send(phone, _t(lang, "menu"), case["id"], "system")
     elif tri and tri["category"] != "other":  # they wrote what they need instead of a number
@@ -790,10 +798,30 @@ def _offer(case, opts: list[dict], header_key: str, **kw) -> None:
     sms.send(phone, services.option_lines(opts, header), case["id"], "system")
 
 
-def _visit_fields(service_id: str, ts: float) -> dict:
+def visit_code(booking_id) -> str:
+    """Visit ID a patient can quote, e.g. V-1042."""
+    return f"V-{1000 + int(booking_id)}" if booking_id else ""
+
+
+def ride_code(ride_id) -> str:
+    return f"R-{100 + int(ride_id)}"
+
+
+def _visit_fields(service_id: str, ts: float, booking_id=None) -> dict:
     svc = services.clinics()[service_id]
     return {"short": svc["short"], "when": services.when(ts), "address": svc["address"],
-            "town": svc["town"], "phone": svc["phone"]}
+            "town": svc["town"], "phone": svc["phone"], "id": visit_code(booking_id)}
+
+
+def _fit(lang: str, key: str, budget: int = 160, **f) -> str:
+    """The text, with the street address (then the pickup) shortened until it fits one SMS."""
+    msg = _t(lang, key, **f)
+    for field in ("address", "pickup"):
+        while len(msg) > budget and len(str(f.get(field, ""))) > 8:
+            f[field] = str(f[field])[:-4].rstrip(" ,") + "…" if not str(f[field]).endswith("…") \
+                else str(f[field])[:-5].rstrip(" ,") + "…"
+            msg = _t(lang, key, **f)
+    return msg
 
 
 def _on_slot(case, word: str) -> None:
@@ -886,7 +914,7 @@ def _book_pick(case, pick: dict) -> None:
         _offer(case, services.next_times(sid, _place_of(case)), "taken", short=pick["short"])
         return
 
-    fields = _visit_fields(sid, pick["ts"])
+    fields = _visit_fields(sid, pick["ts"], booking_id)
     if case["resched_id"]:
         old = db.get_booking(case["resched_id"])
         try:
@@ -896,14 +924,14 @@ def _book_pick(case, pick: dict) -> None:
             _notify_chws(case, f"[#{case['id']}] please cancel the old visit in athenahealth: "
                                f"appointment {old['external_id']}")
         db.cancel_booking(old["id"])
-        sms.send(phone, _t(lang, "moved", **fields), case["id"], "system")
+        sms.send(phone, _fit(lang, "moved", **fields), case["id"], "system")
         note = "rescheduled to"
     else:
-        sms.send(phone, _t(lang, "booked", **fields), case["id"], "system")
+        sms.send(phone, _fit(lang, "booked", **fields), case["id"], "system")
         note = "booked"
-    db.update_case(case["id"], stage="booked", offers=None, resched_id=None, pick=None)
+    db.update_case(case["id"], stage="ask_visit", offers=None, resched_id=None, pick=None)  # 2 / 3 work now
     sms.send(phone, _t(lang, "ride_offer"), case["id"], "system")
-    _notify_chws(case, f"[#{case['id']}] {note} {fields['short']} {fields['when']} "
+    _notify_chws(case, f"[#{case['id']}] {note} {fields['short']} {fields['when']} ({fields['id']}) "
                        f"({case['income']} income, {case['zip']})" + (f" athena appt {ext}" if ext else ""))
 
 
@@ -1047,8 +1075,10 @@ def send_due_reminders(at: float | None = None) -> int:
     sent = 0
     for b in db.due_reminders(at):
         case = db.get_case(b["case_id"])
-        sms.send(b["patient_phone"], _t(case["language"] if case else "en", "reminder",
-                                        **_visit_fields(b["service_id"], b["start_ts"])), b["case_id"], "system")
+        if case:  # so a reply of 2 / 3 to the reminder cancels / reschedules
+            db.update_case(case["id"], status="open", stage="ask_visit")
+        sms.send(b["patient_phone"], _fit(case["language"] if case else "en", "reminder",
+                                          **_visit_fields(b["service_id"], b["start_ts"], b["id"])), b["case_id"], "system")
         db.mark_reminded(b["id"])
         sent += 1
     return sent
