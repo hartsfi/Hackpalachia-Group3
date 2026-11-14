@@ -95,6 +95,8 @@ ATHENA_CLIENT_ID=x ATHENA_CLIENT_SECRET=x ATHENA_BASE_URL=http://127.0.0.1:8796 
 In the simulator: `checkup in Athens`, `2`, pick the "Athens Health Ctr" number, then
 `Jane Doe 03/14/1980`. You get "Booked: Athens Health Ctr…", and http://127.0.0.1:8796/_state
 shows the booking on the athenahealth side. `RESCHEDULE` and `CANCEL VISIT` update it there too.
+The fake has several practices and clinics; this section uses only department 1 of the first
+practice ("Clinic finder" below uses all of them).
 Automatic check (14 checks, incl. a slot taken at the front desk and athenahealth being down):
 start the fake on 8796 and the server on 8797 with a fresh `DB_PATH`, then
 `python3 tools/check_athena.py`.
@@ -113,6 +115,114 @@ start the fake on 8796 and the server on 8797 with a fresh `DB_PATH`, then
    open slots in the next two weeks, that clinic simply isn't offered.
 
 The Preview sandbox is shared test data: never use real patient names or birthdays there.
+
+## Clinic finder
+
+After the ZIP and the income question, the finder (`app/finder.py`) picks up to three clinics:
+nearest first, only clinics that take the patient's income group, nothing farther than 45 miles,
+and a clinic known for the patient's need (for now: mental health) counts as 15 miles closer.
+Each option is the clinic's next open time. Where the clinics come from is one setting.
+
+### Sample mode (default)
+
+`CLINIC_SOURCE=sample`, or nothing set: the clinics in `app/data/services.json`, as in level 1.
+Nothing to set up.
+
+### Fake athenahealth mode
+
+`CLINIC_SOURCE=athena` reads the clinics from athenahealth: every department of every practice
+in `ATHENA_PRACTICE_IDS`, plus `app/data/clinic_overrides.json` for what athenahealth does not
+know (short name, income group, needs, which appointment type to book). `tools/fake_athena.py`
+plays athenahealth with two made-up clinic organizations and seven bookable clinics.
+
+Automatic check, nothing to start (55 checks, about 10 seconds):
+
+```bash
+cd sms
+uv run python -m tools.check_finder
+```
+
+By hand in the phone simulator:
+
+```bash
+cd sms
+uv run uvicorn tools.fake_athena:app --port 8796
+# second terminal:
+rm -f /tmp/careline-finder.db
+DB_PATH=/tmp/careline-finder.db CLINIC_SOURCE=athena ATHENA_CLIENT_ID=x ATHENA_CLIENT_SECRET=x \
+  ATHENA_BASE_URL=http://127.0.0.1:8796 ATHENA_PRACTICE_IDS=195900,195901 \
+  uv run uvicorn app.main:app --port 8790
+```
+
+Open http://127.0.0.1:8790/simulator and type as the patient:
+
+| # | Type | You should see |
+|---|------|----------------|
+| 1 | `need a checkup, 45764` | "Got it: Nelsonville, OH 45764. Reply 1 if low income…" |
+| 2 | `1` | `1) Nelsonville Family 0mi …` `2) Glouster Health 8mi …` `3) Athens Health Ctr 11mi …`, each with its next open time |
+| 3 | `1` | "To book at Nelsonville Family, reply with your first and last name and date of birth…" (once per clinic organization) |
+| 4 | `Jane Doe 03/14/1980` | "Booked: Nelsonville Family, …, 15 Canal St, Nelsonville. Call 740-555-0121…" |
+| 5 | `RESCHEDULE`, then `3` | "Pick a new time…", the options again, then "Moved: Athens Health Ctr, …, 40 Elm St, Athens. Call 740-555-0112. Old time cancelled." No second identity question: same organization. |
+| 6 | `CANCEL VISIT` | "Your visit … at Athens Health Ctr is cancelled." |
+
+http://127.0.0.1:8796/_state shows the athenahealth side: after step 4 one appointment under
+`practices → 195900 → booked`; after step 5 that id is in `cancelled` and a new one is booked
+(one reschedule call); after step 6 `booked` is empty.
+
+More to try (use a new patient number each time, e.g. `+17405552001`):
+
+- `I feel anxious and want to talk to someone, 45764`, then `1`: Glouster Health comes first
+  although it is 8 miles away, with a behavioral health time, because it is tagged for mental
+  health. Nelsonville Family, untagged, is third.
+- `checkup 45769`, `1`, `1`, `Pat Sample 02/03/1970`: books Pomeroy Family, which belongs to the
+  second organization (practice 195901 in `/_state`). Then `RESCHEDULE` and pick Athens Health
+  Ctr: name and date of birth are asked again, because Athens belongs to the other organization
+  and patient records are per organization. Afterwards the visit is booked in 195900 and
+  cancelled in 195901.
+- `checkup 44101` (Cleveland): no clinic within 45 miles, so "No open times near you right now.
+  A health worker will text you…" and the worker phone gets the alert.
+- One clinic broken: `curl -X POST "http://127.0.0.1:8796/_fail?departmentid=2"`. Nelsonville
+  Family is left out and the others are still offered, a few seconds later than usual because
+  the failing call is retried first (`&on=0` mends it). Slow instead of broken:
+  `curl -X POST "http://127.0.0.1:8796/_slow?departmentid=2&seconds=8"`; the text arrives after
+  5 seconds (`ATHENA_SLOT_TIMEOUT`) without that clinic (`&seconds=0` ends it).
+- athenahealth busy: `curl -X POST "http://127.0.0.1:8796/_throttle?n=3"` answers the next three
+  calls with 429; the options still arrive. Down: `curl -X POST http://127.0.0.1:8796/_down`
+  (and `/_up`); the patient is told a health worker will set a visit up.
+- `curl -X POST http://127.0.0.1:8796/_reset` puts the fake back to the start.
+
+Options are cached for 30 seconds per clinic, so wait that long (or restart the server) after
+changing something on the fake.
+
+### Going live checklist
+
+Going live takes changes in `.env` and the overrides file only, no code.
+
+1. In `.env`: `ATHENA_CLIENT_ID`, `ATHENA_CLIENT_SECRET`, `ATHENA_PRACTICE_IDS` (one practice
+   id per clinic organization, comma-separated), `ATHENA_ENV=preview` or `production`. Leave
+   `ATHENA_BASE_URL` blank. Leave `CLINIC_SOURCE` alone for now.
+2. `uv run python tools/check_athena_live.py`. Read-only: it lists the departments, shows how
+   each mapped and which fields athenahealth did not send, and prints the options texts for a
+   few ZIP codes (add your own: `tools/check_athena_live.py 45701 43138`). Look for:
+   - "missing: latitude, longitude": that clinic sits at the centre of its ZIP code. Fine for
+     ranking; a department with no known ZIP either is not offered.
+   - "NOT offered" on a clinic that should be, or the other way round. Which field marks a closed
+     department was not confirmed without credentials; if it differs, the fix is in one
+     place, `map_department()` in `app/clinics.py`.
+3. `uv run python tools/athena_setup.py overrides` writes `app/data/clinic_overrides.json` with
+   one entry per department (it replaces the fake's entries and keeps ones you already filled
+   in). For each clinic fill in `short` (18 characters or fewer), `income`, `needs`,
+   `appointment_types` and set `hidden` for departments patients should not book.
+   `uv run python tools/athena_setup.py` lists the appointment type ids.
+4. Run `tools/check_athena_live.py` again and read the texts as a patient would.
+5. Still in Preview, with a made-up name and birthday: set `CLINIC_SOURCE=athena`, start the
+   server and go through steps 1–6 of the table above once. Booking, the reschedule call and
+   cancelling have only been run against the fake so far; this is their first real run.
+6. Production: the production client id and secret, `ATHENA_ENV=production`, the real
+   `ATHENA_PRACTICE_IDS`, `CLINIC_SOURCE=athena`. Repeat steps 2 to 4 there, then restart.
+
+The directory is reloaded every hour (`CLINIC_DIRECTORY_TTL`); a restart reloads it at once,
+together with the overrides file.
 
 ## Level 2: real phones with a Twilio trial (free, ~15 minutes)
 
