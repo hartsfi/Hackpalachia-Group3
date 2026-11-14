@@ -1,0 +1,23 @@
+{
+  "_note": "Southeast Ohio towns and ZIP codes with approximate centre coordinates, used to turn a typed ZIP or town into a location (SMS cannot send GPS). Add rows to cover more of the region.",
+  "places": [
+    {"town": "Athens", "zip": "45701", "lat": 39.329, "lon": -82.101},
+    {"town": "Albany", "zip": "45710", "lat": 39.224, "lon": -82.201},
+    {"town": "Amesville", "zip": "45711", "lat": 39.400, "lon": -81.956},
+    {"town": "Chauncey", "zip": "45719", "lat": 39.398, "lon": -82.129},
+    {"town": "Coolville", "zip": "45723", "lat": 39.222, "lon": -81.797},
+    {"town": "Glouster", "zip": "45732", "lat": 39.503, "lon": -82.085},
+    {"town": "Guysville", "zip": "45735", "lat": 39.272, "lon": -81.928},
+    {"town": "Nelsonville", "zip": "45764", "lat": 39.459, "lon": -82.232},
+    {"town": "The Plains", "zip": "45780", "lat": 39.369, "lon": -82.133},
+    {"town": "Trimble", "zip": "45782", "lat": 39.484, "lon": -82.079},
+    {"town": "Logan", "zip": "43138", "lat": 39.540, "lon": -82.407},
+    {"town": "McArthur", "zip": "45651", "lat": 39.247, "lon": -82.478},
+    {"town": "Pomeroy", "zip": "45769", "lat": 39.027, "lon": -82.034},
+    {"town": "Marietta", "zip": "45750", "lat": 39.415, "lon": -81.455},
+    {"town": "Belpre", "zip": "45714", "lat": 39.274, "lon": -81.573},
+    {"town": "New Lexington", "zip": "43764", "lat": 39.714, "lon": -82.208},
+    {"town": "Jackson", "zip": "45640", "lat": 39.052, "lon": -82.636},
+    {"town": "Gallipolis", "zip": "45631", "lat": 38.810, "lon": -82.202}
+  ]
+}

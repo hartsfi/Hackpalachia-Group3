@@ -18,6 +18,9 @@ def _twilio():
 
 
 def send(to: str, body: str, case_id: int | None, sender: str) -> None:
+    if db.is_opted_out(to):
+        log.info("not texting %s: opted out", to)
+        return
     sid, channel = None, "dev"
     if config.TWILIO_ENABLED:
         try:

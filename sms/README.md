@@ -8,7 +8,13 @@ Patient (any carrier) ──text──▶ clinic number ──▶ server ──�
 Health worker texts "#12 msg" ──▶ server ──▶ patient, sent from the clinic number
 ```
 
-Neither side ever sees the other's personal number. Each new text is triaged by need (rides, medicine,
+Neither side ever sees the other's personal number.
+
+Patients can also **book a visit entirely by text** (user story 1 in
+[`docs/USER_STORIES.md`](../docs/USER_STORIES.md)): ZIP or town, one income question, up to three
+nearby visits with distance and next time, booking in a mock clinic calendar, `CANCEL VISIT` /
+`RESCHEDULE`, and a reminder 24 hours before. Low income is offered the mobile health unit and free
+or sliding-scale clinics first. Clinics and towns live in `app/data/` (sample data for now). Each new text is triaged by need (rides, medicine,
 appointments, food, housing, mental health, insurance, utilities) and urgency. Claude does this when
 `ANTHROPIC_API_KEY` is set, keyword rules otherwise. Emergency and crisis words always get an
 immediate 911 / 988 reply, in English or Spanish.
@@ -33,7 +39,8 @@ uv run uvicorn app.main:app --reload --port 8790
 | `#12 close`     | Closes case 12                         |
 | `LIST`          | Lists open cases                       |
 
-Patients can text `HELP`. `STOP` opts them out (Twilio enforces it) and closes their case.
+Patients can text `CANCEL VISIT`, `RESCHEDULE`, `HELP`, `STOP` and `START`.
+
 
 ## Connect real phones (Twilio)
 

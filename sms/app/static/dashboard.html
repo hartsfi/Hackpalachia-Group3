@@ -17,7 +17,7 @@
   .case .msg { color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
   .pill { font-size:11px; font-weight:700; text-transform:uppercase; padding:2px 7px; border-radius:99px; color:#fff; }
   .emergency{background:var(--em)} .high{background:var(--hi)} .medium{background:var(--med)} .low{background:var(--low)}
-  .closed { opacity:.55 } .cat { font-weight:500; color:var(--mute); font-size:13px; }
+  .closed { opacity:.55 } .booked{background:#1f5f8b} .cat { font-weight:500; color:var(--mute); font-size:13px; }
   #detail { display:flex; flex-direction:column; min-width:0; }
   #head { padding:14px 20px; border-bottom:1px solid var(--line); background:var(--card); }
   #head .sum { color:var(--mute); margin-top:4px; } #head button { float:right; }
@@ -56,7 +56,7 @@ async function loadList() {
   $("#list").innerHTML = cases.map(c => `
     <div class="case ${c.id === selected ? "sel" : ""} ${c.status}" data-id="${c.id}">
       <div class="top">#${c.id} <span class="pill ${c.urgency}">${c.urgency}</span>
-        <span class="cat">${esc(c.category.replace("_", " "))}</span>
+        <span class="cat">${esc(c.category.replace("_", " "))}</span>${c.booked ? ' <span class="pill booked">booked</span>' : ""}
         <span style="flex:1"></span><span class="cat">${esc(c.patient_phone)}</span></div>
       <div class="msg">${esc(c.last_patient_message)}</div>
     </div>`).join("") || '<div class="case"><div class="msg">No cases</div></div>';
@@ -67,8 +67,8 @@ async function loadCase() {
   if (!selected) return;
   const r = await fetch("/api/cases/" + selected);
   if (!r.ok) return;
-  const { case: c, messages } = await r.json();
-  const key = JSON.stringify([c.status, c.assigned_chw, messages.length]);
+  const { case: c, messages, bookings } = await r.json();
+  const key = JSON.stringify([c.status, c.assigned_chw, messages.length, bookings.map(b => b.status)]);
   if (key === lastThread) return;
   lastThread = key;
   const thread = messages.filter(m => !(m.sender === "system" && m.to_phone !== c.patient_phone));
@@ -76,7 +76,9 @@ async function loadCase() {
     <div id="head">${c.status === "open" ? '<button class="ghost" id="close">Close case</button>' : ""}
       <b>#${c.id} · ${esc(c.patient_phone)}</b> <span class="pill ${c.urgency}">${c.urgency}</span>
       <span class="cat">${esc(c.category.replace("_", " "))} · ${c.status}${c.assigned_chw ? " · worker " + esc(c.assigned_chw) : " · unclaimed"}</span>
-      <div class="sum">${esc(c.summary)}</div></div>
+      <div class="sum">${esc(c.summary)}</div>
+      <div class="sum">${c.town ? "Location: " + esc(c.town) + " " + esc(c.zip) : "Location: not given yet"}${c.income ? " · income: " + (c.income === "low" ? "low / Medicaid / uninsured" : "other insurance or can pay") : ""}</div>
+      ${bookings.map(b => `<div class="sum"><b>${b.status === "booked" ? "Visit booked" : "Cancelled"}:</b> ${esc(b.clinic)}, ${esc(b.when)}</div>`).join("")}</div>
     <div id="thread">${thread.map(m => `<div class="b ${m.sender}">${esc(m.sender === "chw" ? m.body.replace(/^\s*#\d+\s*/, "") : m.body)}<small>${label(m)} · ${when(m.created_at)}${m.channel === "failed" ? " · NOT SENT" : ""}</small></div>`).join("")}</div>
     ${c.status === "open" ? '<form id="f"><textarea id="t" placeholder="Text the patient…"></textarea><button>Send</button></form>' : ""}`;
   $("#thread").scrollTop = 1e9;

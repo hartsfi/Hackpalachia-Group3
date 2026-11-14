@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import secrets
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -8,14 +10,35 @@ from fastapi.responses import FileResponse, RedirectResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 
-from . import config, db, relay
+from . import config, db, relay, services
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 STATIC = Path(__file__).parent / "static"
 EMPTY_TWIML = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
 
-app = FastAPI(title="TextBridge")
+log = logging.getLogger("main")
 db.init()
+
+
+async def _reminder_loop():
+    while True:
+        try:
+            sent = await run_in_threadpool(relay.send_due_reminders)
+            if sent:
+                log.info("sent %d visit reminders", sent)
+        except Exception:
+            log.exception("reminder check failed")
+        await asyncio.sleep(60)
+
+
+@asynccontextmanager
+async def lifespan(_app):
+    task = asyncio.create_task(_reminder_loop())
+    yield
+    task.cancel()
+
+
+app = FastAPI(title="TextBridge", lifespan=lifespan)
 
 _basic = HTTPBasic(auto_error=False)
 
@@ -71,7 +94,11 @@ def api_case(case_id: int):
     case = db.get_case(case_id)
     if case is None:
         raise HTTPException(404)
-    return {"case": dict(case), "messages": db.case_messages(case_id)}
+    bookings = []
+    for b in db.case_bookings(case_id):
+        svc = services.clinics().get(b["service_id"], {})
+        bookings.append({**b, "clinic": svc.get("short", b["service_id"]), "when": services.when(b["start_ts"])})
+    return {"case": dict(case), "messages": db.case_messages(case_id), "bookings": bookings}
 
 
 @app.post("/api/cases/{case_id}/reply", dependencies=[Depends(staff)])
@@ -125,3 +152,9 @@ def dev_text(t: DevText):
 @app.get("/dev/phone/{phone}", dependencies=[Depends(dev_only)])
 def dev_phone(phone: str, since: int = 0):
     return db.phone_messages(phone, since)
+
+
+@app.post("/dev/reminders", dependencies=[Depends(dev_only)])
+def dev_reminders(hours_ahead: float = 0):
+    """Run the reminder check as if the clock were `hours_ahead` hours later."""
+    return {"sent": relay.send_due_reminders(db.now() + hours_ahead * 3600)}

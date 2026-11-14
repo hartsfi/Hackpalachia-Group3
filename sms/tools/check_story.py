@@ -1,0 +1,81 @@
+"""Checks every acceptance criterion of user story 1 (docs/USER_STORIES.md) against a running
+server in dev mode. Use a fresh database:
+
+    rm -f /tmp/tb-check.db; DB_PATH=/tmp/tb-check.db uv run uvicorn app.main:app --port 8794
+    python3 tools/check_story.py http://127.0.0.1:8794
+"""
+import json, sys, time, urllib.parse, urllib.request
+B = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8794"; W = "+17405550199"
+GSM7 = set("@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà")
+def post(path, data=None):
+    req = urllib.request.Request(B + path, data=json.dumps(data or {}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+    return json.load(urllib.request.urlopen(req))
+def get(path): return json.load(urllib.request.urlopen(B + path))
+def inbox(phone): return [m for m in get("/dev/phone/" + urllib.parse.quote(phone)) if m["to_phone"] == phone]
+def text(phone, body):
+    n = len(inbox(phone)); t = time.time(); post("/dev/text", {"from_phone": phone, "body": body})
+    new = inbox(phone)[n:]; return new, time.time() - t
+ok = True
+def check(name, cond, detail=""):
+    global ok; ok &= bool(cond); print(("PASS " if cond else "FAIL ") + name + (f"  [{detail}]" if detail else ""))
+def show(msgs):
+    for m in msgs: print("      > " + m["body"].replace("\n", " / "))
+
+P1, P2, P3 = "+17405551001", "+17405551002", "+17405551003"
+print("== Start"); r, dt = text(P1, "hi"); show(r)
+check("reply asks what care + where", r and "ZIP" in r[-1]["body"] and "care" in r[-1]["body"], f"{dt*1000:.0f} ms")
+check("reply within 10 seconds", dt < 10)
+print("== Location"); r, _ = text(P1, "I live in Columbus"); show(r)
+check("unknown place asks again", r and "could not find" in r[-1]["body"])
+r, _ = text(P1, "need a checkup, 45764"); show(r)
+check("ZIP recognized and confirmed back", r and "Nelsonville, OH 45764" in r[-1]["body"])
+r, _ = text(P3, "Nelsonville"); show(r); check("town name recognized", r and "Nelsonville, OH 45764" in r[-1]["body"])
+r, _ = text(P2, "https://maps.apple.com/?ll=39.4612,-82.2290&q=My%20Location sore throat"); show(r)
+check("shared GPS link recognized (smartphones)", r and "Nelsonville" in r[-1]["body"])
+print("== Options"); r, _ = text(P1, "1"); show(r)
+lines = [l for l in r[-1]["body"].split("\n") if l[:2] in ("1)", "2)", "3)")]
+check("up to 3 numbered options with name, distance, time", 1 <= len(lines) <= 3 and all("mi " in l and ("AM" in l or "PM" in l) for l in lines))
+r2, _ = text(P2, "1"); r3, _ = text(P3, "1")
+check("two other patients see the same first slot", r2[-1]["body"].split("\n")[1] == r3[-1]["body"].split("\n")[1], r2[-1]["body"].split("\n")[1])
+print("== Booking"); r, _ = text(P1, "1"); show(r); b = r[-1]["body"]
+check("confirmation has date, time, address, phone", b.startswith("Booked:") and "/" in b and ("AM" in b or "PM" in b) and "lot" in b.lower() and "740-555-" in b)
+print("== Slot taken"); r, _ = text(P2, "1"); show(r); check("P2 picks P1's slot: told taken, offered next times", "just taken" in r[-1]["body"] and "1)" in r[-1]["body"])
+r, _ = text(P2, "1"); show(r); check("P2 books the next time", r[-1]["body"].startswith("Booked:"))
+r, _ = text(P3, "1"); show(r); check("P3 (same old offer) also told taken", "just taken" in r[-1]["body"])
+r, _ = text(P3, "1"); show(r); check("P3 books a next time", r[-1]["body"].startswith("Booked:"))
+print("== Change or cancel"); r, _ = text(P1, "RESCHEDULE"); show(r)
+check("reschedule keeps old visit and offers new times", any("stays booked" in m["body"] for m in r) and "1)" in r[-1]["body"])
+r, _ = text(P1, "2"); show(r); check("reschedule confirmed", r[-1]["body"].startswith("Moved:"))
+r, _ = text(P2, "cancel visit"); show(r); check("CANCEL VISIT confirmed", "cancelled" in r[-1]["body"])
+r, _ = text(P2, "cancel visit"); show(r); check("cancel with nothing booked is explained", "no upcoming visit" in r[-1]["body"])
+print("== Reminder")
+case1 = [c for c in get("/api/cases") if c["patient_phone"] == P1][0]
+bk = [x for x in get(f"/api/cases/{case1['id']}")["bookings"] if x["status"] == "booked"][0]
+hrs = (bk["start_ts"] - time.time()) / 3600
+n = len(inbox(P1)); post(f"/dev/reminders?hours_ahead={hrs - 30:.3f}")
+check("no reminder 30 hours before", len(inbox(P1)) == n)
+post(f"/dev/reminders?hours_ahead={hrs - 23.5:.3f}"); r = inbox(P1)[n:]; show(r)
+check("reminder 24 hours before", len(r) == 1 and r[0]["body"].startswith("Reminder:"))
+post(f"/dev/reminders?hours_ahead={hrs - 23:.3f}"); check("reminder sent only once", len(inbox(P1)) == n + 1)
+print("== Emergency"); r, _ = text("+17405551004", "I can't breathe"); show(r)
+check("emergency -> 911, no booking question", len(r) == 1 and "911" in r[0]["body"] and "ZIP" not in r[0]["body"])
+r, _ = text("+17405551005", "I want to end my life"); show(r); check("crisis -> 988", "988" in r[-1]["body"])
+text("+17405551006", "checkup in Athens"); r, _ = text("+17405551006", "my dad has chest pain"); show(r)
+check("emergency mid-booking stops the flow", "911" in r[-1]["body"])
+r, _ = text("+17405551006", "1"); check("next '1' is not treated as a booking answer", not r, f"{len(r)} texts")
+print("== Spanish"); r, _ = text("+17405551007", "hola, necesito una cita en Athens"); show(r)
+check("Spanish reply", r and r[-1]["body"].startswith("Listo"))
+print("== Opt out"); r, _ = text(P3, "STOP"); check("STOP gets no reply from us (Twilio confirms)", not r)
+n = len(inbox(P3)); post("/dev/text", {"from_phone": W, "body": f"#{[c for c in get('/api/cases') if c['patient_phone']==P3][0]['id']} hello?"})
+post("/dev/reminders?hours_ahead=400"); check("no texts after STOP (worker reply, reminders)", len(inbox(P3)) == n)
+r, _ = text(P3, "START"); check("START opts back in", r and "again" in r[-1]["body"])
+print("== Plain SMS only")
+pats = [P1, P2, P3] + [f"+1740555100{i}" for i in range(4, 8)]
+msgs = [m for p in pats for m in inbox(p)]
+too_long = [m["body"] for m in msgs if len(m["body"]) > 160]
+not_gsm = [m["body"] for m in msgs if set(m["body"]) - GSM7]
+links = [m["body"] for m in msgs if "http" in m["body"]]
+check(f"all {len(msgs)} patient texts <= 160 chars", not too_long, "; ".join(f"{len(b)}: {b[:50]}" for b in too_long))
+check("all in the GSM-7 alphabet (one SMS segment)", not not_gsm, "; ".join(b[:60] for b in not_gsm))
+check("no links", not links)
+print("ALL PASS" if ok else "SOME FAILED")

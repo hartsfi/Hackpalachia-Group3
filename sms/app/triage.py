@@ -19,7 +19,7 @@ CATEGORIES = [
 URGENCIES = ["low", "medium", "high", "emergency"]
 
 EMERGENCY_WORDS = re.compile(
-    r"chest pain|can'?t breathe|cannot breathe|not breathing|stroke|overdos|unconscious|"
+    r"chest pain|can['’]?t breathe|cannot breathe|not breathing|stroke|overdos|unconscious|"
     r"bleeding a lot|severe bleeding|suicid|kill myself|end my life|want to die",
     re.I,
 )
