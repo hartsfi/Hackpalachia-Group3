@@ -25,6 +25,8 @@ P1, P2, P3 = "+17405551001", "+17405551002", "+17405551003"
 print("== Start"); r, dt = text(P1, "hi"); show(r)
 check("reply asks what care + where", r and "ZIP" in r[-1]["body"] and "care" in r[-1]["body"], f"{dt*1000:.0f} ms")
 check("reply within 10 seconds", dt < 10)
+r, _ = text(P1, "hi"); show(r)
+check("a second greeting gets the first question again, not a place error", r and "ZIP" in r[-1]["body"] and "could not find" not in r[-1]["body"])
 print("== Location"); r, _ = text(P1, "I live in Columbus"); show(r)
 check("unknown place asks again", r and "could not find" in r[-1]["body"])
 r, _ = text(P1, "need a checkup, 45764"); show(r)

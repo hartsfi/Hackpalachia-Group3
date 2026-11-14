@@ -235,10 +235,15 @@ def _ask_income(case, place: dict) -> None:
     sms.send(case["patient_phone"], _t(case["language"], "place_ok", **place), case["id"], "system")
 
 
+GREETING = re.compile(r"^(hi+|hey+|hello+|hiya|yo|hola|good (morning|afternoon|evening)|ok(ay)?|thanks?|thank you)( there)?\W*$", re.I)
+
+
 def _on_where(case, body: str) -> None:
     place = services.find_place(body)
     if not place:
-        sms.send(case["patient_phone"], _t(case["language"], "where_again"), case["id"], "system")
+        # A greeting isn't a failed place: ask the friendly first question again.
+        key = "start" if GREETING.match(body.strip()) else "where_again"
+        sms.send(case["patient_phone"], _t(case["language"], key), case["id"], "system")
         return
     if case["category"] == "other":  # first text was just "hi": sort the need from this one
         tri = triage(body)
