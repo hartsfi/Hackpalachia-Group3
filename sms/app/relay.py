@@ -15,6 +15,7 @@ Emergencies skip all of this: 911 / 988 first, CHWs alerted, no booking.
 Every text to a patient is kept within 160 GSM-7 characters (no links).
 """
 import datetime as dt
+import difflib
 import json
 import logging
 import re
@@ -68,6 +69,10 @@ TEXT = {
                         "ZIP code or town.",
         "welcome": "CareLine health line: replies to your texts, visit bookings and reminders. "
                    "Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
+        "menu": "What do you need? Reply a number:\n1 See a doctor\n2 Ride to a visit\n3 Medicine/pharmacy\n"
+                "4 Mobile clinic\n5 My visit\n6 Health worker\nEmergency: call 911",
+        "welcome_back_menu": "Welcome back {first}!",
+        "chw_soon": "OK. A health worker will text you here soon.",
         "ride_offer": "Need a ride to your visit? Reply RIDE.",
         "ride_medicaid": "Medicaid covers free rides to medical visits: call the number on your plan card, or "
                          "Ohio Medicaid at 1-800-324-8680.",
@@ -82,8 +87,8 @@ TEXT = {
         "where_need": "Got it. What is your ZIP code or town, so we can find care near you?",
         "welcome_back_visit": "Welcome back {first}! Your next visit: {when}, {short}. Text what you need, or "
                               "MY VISIT for details.",
-        "my_visit": "Your next visit: {when}, {short}, {address}, {town}. Call {phone}. Text CANCEL VISIT or "
-                    "RESCHEDULE to change.",
+        "my_visit": "Your next visit: {when}, {short}, {address}, {town}. Call {phone}. Reply 2 to cancel, "
+                    "3 to reschedule.",
         "no_visit": "You have no upcoming visit. Text what care you need to book one.",
         "pharm_header": "Pharmacies near you (call first):",
         "med_tip": "Ask the pharmacist about an emergency refill. Reply 1 to book a doctor visit for a new "
@@ -146,6 +151,10 @@ TEXT = {
                         "necesita y su codigo postal.",
         "welcome": "Linea de salud CareLine: respuestas, citas y recordatorios. Pueden aplicar "
                    "tarifas de mensajes y datos. HELP para ayuda, STOP para salir.",
+        "menu": "¿Que necesita? Responda un numero:\n1 Ver a un medico\n2 Transporte\n3 Medicina/farmacia\n"
+                "4 Clinica movil\n5 Mi cita\n6 Trabajador de salud\nEmergencia: 911",
+        "welcome_back_menu": "¡Bienvenido otra vez {first}!",
+        "chw_soon": "Bien. Un trabajador de salud le escribira aqui pronto.",
         "ride_offer": "¿Necesita transporte a su cita? Responda RIDE.",
         "ride_medicaid": "Medicaid cubre viajes gratis a citas medicas: llame al numero de su tarjeta del plan, "
                          "o a Ohio Medicaid al 1-800-324-8680.",
@@ -159,8 +168,8 @@ TEXT = {
         "where_need": "Entendido. ¿Cual es su codigo postal o pueblo, para buscar atencion cerca?",
         "welcome_back_visit": "Bienvenido otra vez {first}! Su proxima cita: {when}, {short}. Escriba que "
                               "necesita, o MY VISIT para detalles.",
-        "my_visit": "Su proxima cita: {when}, {short}, {address}, {town}. Tel {phone}. CANCELAR CITA o "
-                    "CAMBIAR CITA para cambiar.",
+        "my_visit": "Su proxima cita: {when}, {short}, {address}, {town}. Tel {phone}. Responda 2 para "
+                    "cancelar, 3 para cambiarla.",
         "no_visit": "No tiene citas. Escriba que atencion necesita para reservar una.",
         "pharm_header": "Farmacias cerca (llame primero):",
         "med_tip": "Pregunte al farmaceutico por un resurtido de emergencia. Responda 1 para una cita para "
@@ -275,6 +284,11 @@ def _from_patient(phone: str, body: str) -> None:
         _send_my_id(phone, case)
         return
 
+    intent = _visit_intent(word)  # "i want to cancell my apointment", typos included
+    if intent:
+        _change_visit(phone, body, intent, case)
+        return
+
     if word in CANCEL_VISIT or word in RESCHEDULE:
         _change_visit(phone, body, word, case)
         return
@@ -291,7 +305,11 @@ def _from_patient(phone: str, body: str) -> None:
     if word == understand.EMERGENCY:  # Claude read the reply as an emergency the keywords missed
         _emergency(phone, heard, case, logged=True)
         return
-    if stage == "ask_name":
+    if stage == "ask_visit" and word in ("2", "3"):  # after "my visit": 2 = cancel, 3 = reschedule
+        _change_visit(phone, body, "cancel visit" if word == "2" else "reschedule", case)
+    elif stage == "menu":
+        _on_menu(case, word, body, tri)
+    elif stage == "ask_name":
         _on_name(case, body)
     elif stage == "ask_where":
         _on_where(case, body, tri)
@@ -335,6 +353,22 @@ MY_VISIT = re.compile(
     r"^(my |next |my next )?(visit|appointment|appt|booking)s?\W*$|"
     r"\b(when|what time|where)\b.*\b(my|the)\b.*\b(appointment|appt|visit|booking)\b|"
     r"\b(do i have|have i got)\b.*\b(appointment|appt|visit)\b|^cita$|^mi cita\W*$", re.I)
+
+
+def _close(w: str, targets: tuple[str, ...], cutoff: float = 0.72) -> bool:
+    return any(difflib.SequenceMatcher(None, w, t).ratio() >= cutoff for t in targets)
+
+
+def _visit_intent(word: str) -> str | None:
+    """'cancel visit' / 'reschedule' from free text with typos, e.g. 'i want ot cncell my appointment'."""
+    words = re.findall(r"[a-z]+", word)
+    if not any(_close(w, ("appointment", "apointment", "appt", "visit", "booking", "cita")) for w in words if len(w) >= 4):
+        return None
+    if any(_close(w, ("cancel", "cancell", "cancelar")) for w in words if len(w) >= 4):
+        return "cancel visit"
+    if any(_close(w, ("reschedule", "change", "move", "cambiar")) for w in words if len(w) >= 4):
+        return "reschedule"
+    return None
 
 
 RIDE_WORDS = {"ride", "a ride", "need a ride", "i need a ride", "transport", "transportation", "viaje", "transporte"}
@@ -395,15 +429,20 @@ def _on_pickup(case, body: str) -> None:
                        f"#{case['id']} the pickup time.")
 
 
-def _send_my_visit(phone: str, case, body: str) -> None:
+def _send_my_visit(phone: str, case, body: str, log: bool = True) -> None:
     lang = case["language"] if case else "en"
     case_id = case["id"] if case else None
-    db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
+    if log:
+        db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     b = db.active_booking(phone)
     if not b:
         sms.send(phone, _t(lang, "no_visit"), case_id, "system")
         return
-    sms.send(phone, _t(lang, "my_visit", **_visit_fields(b["service_id"], b["start_ts"])), case_id, "system")
+    vcase = db.get_case(b["case_id"])  # answer 2 / 3 on the visit's own case
+    if vcase["status"] != "open":
+        db.update_case(vcase["id"], status="open")
+    db.update_case(vcase["id"], stage="ask_visit")
+    sms.send(phone, _t(lang, "my_visit", **_visit_fields(b["service_id"], b["start_ts"])), vcase["id"], "system")
 
 
 def _is_free_text(word: str) -> bool:
@@ -419,6 +458,8 @@ def _find_place(body: str, tri: dict | None) -> dict | None:
 
 
 def _new_case(phone: str, body: str, tri: dict) -> None:
+    if GREETING.match(body.strip()):  # "hi" says nothing about the need, whatever the model guessed
+        tri = {**tri, "category": "other"}
     first_contact = db.is_first_contact(phone) and db.get_patient(phone) is None  # account holders aren't new
     case_id = db.create_case(phone, tri)
     db.add_message(case_id, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
@@ -443,17 +484,36 @@ def _new_case(phone: str, body: str, tri: dict) -> None:
 
 
 def _continue_after_hello(case, patient) -> None:
-    """Returning person (or just signed up): use what we know, ask only for what is missing."""
+    """Returning person (or just signed up): use what we know, ask only for what is missing.
+    No clear need yet ("hi", just a name): the numbered menu."""
     patient = patient or db.get_patient(case["patient_phone"])
     first = (patient["first_name"] or "").strip() if patient else ""
     lang, phone = case["language"], case["patient_phone"]
-    booking = db.active_booking(phone)
-    # A returning person who said hello: greet them with their next visit, if they have one.
-    if booking and first and case["category"] == "other" and not case["zip"]:
-        db.update_case(case["id"], stage="ask_where")
-        sms.send(phone, _t(lang, "welcome_back_visit", first=first[:15],
-                           **_visit_fields(booking["service_id"], booking["start_ts"])), case["id"], "system")
+    if case["category"] == "other" and not case["zip"]:
+        booking = db.active_booking(phone)
+        if first and booking:
+            sms.send(phone, _t(lang, "welcome_back_visit", first=first[:15],
+                               **_visit_fields(booking["service_id"], booking["start_ts"])), case["id"], "system")
+        elif first and not _just_signed_up(case):
+            sms.send(phone, _t(lang, "welcome_back_menu", first=first[:15]), case["id"], "system")
+        _show_menu(case)
         return
+    _route_need(case, patient)
+
+
+def _just_signed_up(case) -> bool:
+    return case["stage"] == "ask_name"
+
+
+def _show_menu(case) -> None:
+    db.update_case(case["id"], stage="menu")
+    sms.send(case["patient_phone"], _t(case["language"], "menu"), case["id"], "system")
+
+
+def _route_need(case, patient=None) -> None:
+    """The need is known: go to its flow, using a place we already have where we can."""
+    patient = patient or db.get_patient(case["patient_phone"])
+    lang, phone = case["language"], case["patient_phone"]
     if case["category"] == "transportation":  # a ride: no town needed, straight to the ride options
         _start_ride(case)
         return
@@ -464,15 +524,37 @@ def _continue_after_hello(case, patient) -> None:
         _after_place(case, place)
         return
     db.update_case(case["id"], stage="ask_where")
-    if case["category"] == "medication":
-        key, kw = "where_med", {}
-    elif case["category"] != "other":
-        key, kw = "where_need", {}
-    elif first:
-        key, kw = "welcome_back", {"first": first[:15]}
+    key = {"medication": "where_med", "other": "start"}.get(case["category"], "where_need")
+    sms.send(phone, _t(lang, key), case["id"], "system")
+
+
+MENU_NEED = {"1": "checkup", "2": "transportation", "3": "medication"}
+
+
+def _on_menu(case, word: str, body: str, tri: dict | None) -> None:
+    phone, lang = case["patient_phone"], case["language"]
+    if word in MENU_NEED:
+        db.update_case(case["id"], category=MENU_NEED[word])
+        _route_need(db.get_case(case["id"]))
+    elif word == "4":
+        _send_mobile_route(phone, case, body, log=False)  # stays on the menu: they can pick again
+    elif word == "5":
+        _send_my_visit(phone, case, body, log=False)
+    elif word == "6":
+        db.update_case(case["id"], stage="done")
+        sms.send(phone, _t(lang, "chw_soon"), case["id"], "system")
+        _notify_chws(case, f"[#{case['id']}] {_tail(phone)} asked to talk to a health worker. Reply: #{case['id']} your message")
+    elif word.isdigit() and len(word) <= 2:  # a menu number we don't have (a ZIP falls through below)
+        sms.send(phone, _t(lang, "menu"), case["id"], "system")
+    elif tri and tri["category"] != "other":  # they wrote what they need instead of a number
+        db.update_case(case["id"], category=tri["category"], summary=tri["summary"],
+                       urgency=max(case["urgency"], tri["urgency"], key=["low", "medium", "high", "emergency"].index))
+        place = _find_place(body, tri)
+        if place:
+            db.update_case(case["id"], zip=place["zip"], town=place["town"])
+        _route_need(db.get_case(case["id"]))
     else:
-        key, kw = "start", {}
-    sms.send(phone, _t(lang, key, **kw), case["id"], "system")
+        _on_where(case, body, tri)  # a town, a ZIP, or a greeting (which shows the menu again)
 
 
 NAME_WORD = re.compile(r"^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.-]*$")
@@ -572,11 +654,18 @@ def _on_where(case, body: str, tri: dict | None = None) -> None:
     if not place and patient and patient["zip"] and not GREETING.match(body.strip()) and _is_free_text(body.lower()):
         place = services.find_place(patient["zip"])  # e.g. "i need my meds" from someone we know
     if not place:
-        # A greeting isn't a failed place: ask the friendly first question again.
-        key = "start" if GREETING.match(body.strip()) else "where_again"
-        sms.send(case["patient_phone"], _t(case["language"], key), case["id"], "system")
+        # A greeting isn't a failed place: show the menu (or ask the first question again).
+        if GREETING.match(body.strip()):
+            if case["category"] == "other":
+                _show_menu(case)
+            else:
+                sms.send(case["patient_phone"], _t(case["language"], "start"), case["id"], "system")
+            return
+        sms.send(case["patient_phone"], _t(case["language"], "where_again"), case["id"], "system")
         return
-    if case["category"] == "other":  # first text was just "hi": sort the need from this one
+    # First text was just "hi": sort the need from this one, but only if it says more than a place
+    # (a bare "45701" or "Athens" says nothing about the need; a model would only be guessing).
+    if case["category"] == "other" and len(body.split()) >= 3 and not body.strip().isdigit():
         tri = tri or triage(body)
         db.update_case(case["id"], category=tri["category"], summary=tri["summary"],
                        urgency=max(case["urgency"], tri["urgency"], key=["low", "medium", "high", "emergency"].index))
@@ -672,9 +761,10 @@ def _on_callhelp(case, word: str, body: str) -> None:
         _notify_chws(case, f"[#{case['id']}] {_tail(case['patient_phone'])}: {body}")
 
 
-def _send_mobile_route(phone: str, case, body: str) -> None:
+def _send_mobile_route(phone: str, case, body: str, log: bool = True) -> None:
     lang = case["language"] if case else "en"
-    db.add_message(case["id"] if case else None, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
+    if log:
+        db.add_message(case["id"] if case else None, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     route = services.mobile_route()
     stops = services.upcoming_mobile(3)
     if not stops:
