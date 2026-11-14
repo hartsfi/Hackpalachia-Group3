@@ -66,7 +66,9 @@ def _claude_triage(text: str) -> dict | None:
         client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
         resp = client.messages.create(
             model=config.TRIAGE_MODEL,
-            max_tokens=300,
+            # Room for the model's reasoning as well as the JSON: at 300 the reasoning could use
+            # the whole budget and leave no answer, which silently fell back to keywords.
+            max_tokens=2000,
             messages=[{"role": "user", "content": PROMPT.format(
                 cats=CATEGORIES, urgs=URGENCIES, text=text)}],
         )
