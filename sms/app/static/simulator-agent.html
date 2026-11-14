@@ -16,6 +16,16 @@
   .top label { display: flex; gap: 6px; align-items: center; }
   .top input { font: inherit; width: 132px; padding: 4px 8px; border: 1px solid #d1d1d6; border-radius: 8px; background: #fff; color: #1c1c1e; }
   .top button { font: inherit; padding: 4px 10px; border: 1px solid #d1d1d6; border-radius: 8px; background: #fff; color: #1c1c1e; cursor: pointer; }
+  .chats { position: relative; }
+  .chats-panel { position: absolute; right: 0; top: calc(100% + 6px); width: 340px; max-height: 60vh; overflow-y: auto; background: #fff;
+                 border: 1px solid #d1d1d6; border-radius: 12px; box-shadow: 0 12px 32px #0002; z-index: 20; padding: 4px; }
+  .chats-panel[hidden] { display: none; }
+  .chat-row { display: block; width: 100%; text-align: left; border: 0 !important; border-radius: 8px !important; padding: 8px 10px !important; background: #fff; cursor: pointer; }
+  .chat-row:hover, .chat-row.cur { background: #f2f2f4 !important; }
+  .chat-row b { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: #1c1c1e; }
+  .chat-row b span { font-weight: 400; color: #8e8e93; }
+  .chat-row div { font-size: 12px; color: #6b6b70; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chats-empty { padding: 10px; font-size: 13px; color: #8e8e93; }
   .stage { flex: 1; display: flex; gap: 40px; justify-content: center; align-items: flex-start; padding: 6px 20px 20px; flex-wrap: wrap; }
 
   /* The phone is drawn at 390 x 844 (plus bezel) and scaled to fit the window. */
@@ -84,7 +94,9 @@
   <span class="sp"></span>
   <label>Texting from <input id="num" value="" aria-label="Patient phone number"></label>
   <button id="next" title="Switch to a new patient number, which starts a new conversation">New patient</button>
-  <button id="existing" title="A patient who already has an account, a saved town and a booked visit">Existing patient</button>
+  <button id="existing" title="Makes a NEW sample patient who already has an account, a saved town and a booked visit">Sample returning patient</button>
+  <span class="chats"><button id="chatsBtn" aria-haspopup="true" aria-expanded="false">Chats ▾</button>
+    <div class="chats-panel" id="chatsPanel" hidden></div></span>
   <a id="toggle" href="?worker=1">Show health worker phone</a>
   <a href="/dashboard" target="_blank">Staff dashboard ↗</a>
 </div>
@@ -171,7 +183,35 @@ function tick() {
 let workerNumber = "";
 const phones = [makePhone(() => numInput.value.trim(), "CL")];
 if (showWorker) phones.push(makePhone(() => workerNumber, "CL"));
-numInput.onchange = () => { phones[0].key = ""; phones[0].last = []; poll(); };
+numInput.onchange = () => {
+  phones[0].key = ""; phones[0].last = []; poll();
+  try { localStorage.setItem("careline-agent-phone", numInput.value.trim()); } catch (e) {}
+};
+function ago(ts) {
+  const s = Math.max(0, Date.now() / 1000 - ts);
+  return s < 60 ? "now" : s < 3600 ? Math.floor(s / 60) + "m" : s < 86400 ? Math.floor(s / 3600) + "h" : Math.floor(s / 86400) + "d";
+}
+const chatsBtn = document.getElementById("chatsBtn"), chatsPanel = document.getElementById("chatsPanel");
+async function showChats() {
+  const list = await (await fetch("/dev/recent-chats")).json();
+  const cur = numInput.value.trim();
+  chatsPanel.innerHTML = list.length ? list.map(c =>
+    `<button class="chat-row${c.phone === cur ? " cur" : ""}" data-phone="${esc(c.phone)}">` +
+    `<b>${esc(c.name || c.phone)}<span>${esc(ago(c.ts))}</span></b>` +
+    `<div>${esc(c.name ? c.phone + " · " : "")}${esc(c.last)}</div></button>`).join("")
+    : `<div class="chats-empty">No conversations yet.</div>`;
+  chatsPanel.querySelectorAll(".chat-row").forEach(b => b.onclick = () => {
+    numInput.value = b.dataset.phone; numInput.onchange(); closeChats();
+  });
+}
+function closeChats() { chatsPanel.hidden = true; chatsBtn.setAttribute("aria-expanded", "false"); }
+chatsBtn.onclick = async (e) => {
+  e.stopPropagation();
+  if (!chatsPanel.hidden) return closeChats();
+  await showChats(); chatsPanel.hidden = false; chatsBtn.setAttribute("aria-expanded", "true");
+};
+document.addEventListener("click", e => { if (!chatsPanel.contains(e.target)) closeChats(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeChats(); });
 async function newPatient() {
   // A fictional number nobody has used yet, so the conversation starts with sign-up.
   const { phone } = await (await fetch("/dev/new-phone")).json();
@@ -186,7 +226,10 @@ fetch("/dev/config").then(r => r.json()).then(c => {
   workerNumber = c.chws[0];
   const pretty = n => n.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, "($1) $2-$3");
   phones.forEach(p => p.name.innerHTML = `CareLine <span>${esc(pretty(c.clinic))} ›</span>`);
-  newPatient();  // every page load starts as a brand-new patient
+  // Reopen the chat you were in (or ?phone=...); otherwise start as a brand-new patient.
+  let saved = new URLSearchParams(location.search).get("phone");
+  try { saved = saved || localStorage.getItem("careline-agent-phone"); } catch (e) {}
+  if (saved) { numInput.value = saved; numInput.onchange(); } else newPatient();
 });
 window.addEventListener("resize", fit);
 fit(); tick(); setInterval(tick, 15000); setInterval(poll, 1500);

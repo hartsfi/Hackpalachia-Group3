@@ -102,7 +102,8 @@ TOOLS = [
                     "or low income; standard = other insurance or can pay), language (en/es). Returns their "
                     "profile and CareLine ID.",
      "input_schema": {"type": "object", "properties": {
-         "first_name": {"type": "string"}, "last_name": {"type": "string"},
+         "first_name": {"type": "string"},
+         "last_name": {"type": "string", "description": "Only if they told you. Omit it otherwise."},
          "coverage": {"type": "string", "enum": ["low", "standard"]},
          "language": {"type": "string", "enum": ["en", "es"]}}}},
     {"name": "search_visits",
@@ -314,8 +315,9 @@ def _run(name: str, args: dict, case):
     if name == "save_profile":
         fields = {}
         for k in ("first_name", "last_name"):
-            if args.get(k):
-                fields[k] = args[k].strip()[:40]
+            v = (args.get(k) or "").strip()
+            if v and not re.search(r"[<>\[\]]|unknown|^n/?a$|^none$", v, re.I):  # no placeholders like <UNKNOWN>
+                fields[k] = v[:40]
         if args.get("coverage") in ("low", "standard"):
             fields["income"] = args["coverage"]
             db.update_case(case["id"], income=args["coverage"])
