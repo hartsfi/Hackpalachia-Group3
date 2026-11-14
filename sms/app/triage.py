@@ -18,12 +18,19 @@ CATEGORIES = [
 ]
 URGENCIES = ["low", "medium", "high", "emergency"]
 
+# Checked in code on every text, before anything else. Deliberately broad: a false alarm costs
+# one 911 reminder, a miss could cost a life. English and Spanish.
 EMERGENCY_WORDS = re.compile(
-    r"chest pain|can['’]?t breathe|cannot breathe|not breathing|stroke|overdos|unconscious|"
-    r"bleeding a lot|severe bleeding|suicid|kill myself|end my life|want to die",
+    r"chest pain|chest hurts|heart attack|cardiac|can['’]?t breathe|cannot breathe|not breathing|"
+    r"trouble breathing|hard to breathe|stroke|overdos|unconscious|unresponsive|not responding|passed out|"
+    r"won['’]?t wake|seizure|choking|anaphyla|bleeding a lot|severe bleeding|bleeding (badly|heavily)|"
+    r"won['’]?t stop bleeding|"
+    r"suicid|kill myself|end my life|want to die|"
+    r"ataque al corazon|ataque al corazón|infarto|no puedo respirar|no respira|derrame|sobredosis|"
+    r"convulsion|convulsión|matarme|quitarme la vida",
     re.I,
 )
-CRISIS_WORDS = re.compile(r"suicid|kill myself|end my life|want to die", re.I)
+CRISIS_WORDS = re.compile(r"suicid|kill myself|end my life|want to die|matarme|quitarme la vida", re.I)
 
 KEYWORDS = {
     "transportation": r"\bride\b|transport|\bbus\b|\bcar\b|\bdrive\b|gas money|get to (my|the)",
