@@ -18,6 +18,12 @@ def text(phone, body):
 ok = True
 def check(name, cond, detail=""):
     global ok; ok &= bool(cond); print(("PASS " if cond else "FAIL ") + name + (f"  [{detail}]" if detail else ""))
+def bookable(msg):
+    """Number of the first option the server books itself (not a call-to-book mobile stop)."""
+    for line in msg.split("\n"):
+        if line[:2] in ("1)", "2)", "3)") and "Mobile" not in line:
+            return line[0]
+    return "1"
 def show(msgs):
     for m in msgs: print("      > " + m["body"].replace("\n", " / "))
 
@@ -46,17 +52,32 @@ lines = [l for l in r[-1]["body"].split("\n") if l[:2] in ("1)", "2)", "3)")]
 check("up to 3 numbered options with name, distance, time", 1 <= len(lines) <= 3 and all("mi " in l and ("AM" in l or "PM" in l) for l in lines))
 r2, _ = text(P2, "1"); r3, _ = text(P3, "1")
 check("two other patients see the same first slot", r2[-1]["body"].split("\n")[1] == r3[-1]["body"].split("\n")[1], r2[-1]["body"].split("\n")[1])
-print("== Booking"); r, _ = text(P1, "1"); show(r); b = r[-1]["body"]
-check("confirmation has date, time, address, phone", b.startswith("Booked:") and "/" in b and ("AM" in b or "PM" in b) and "lot" in b.lower() and "740-555-" in b)
-print("== Slot taken"); r, _ = text(P2, "1"); show(r); check("P2 picks P1's slot: told taken, offered next times", "just taken" in r[-1]["body"] and "1)" in r[-1]["body"])
+print("== Real mobile clinic route")
+mob = next((l for l in lines if "Mobile" in l), None)
+check("a real mobile clinic stop is offered", mob, mob)
+r, _ = text("+17405550170", "MOBILE"); show(r)
+check("MOBILE lists the next stops and the booking phone", r and "740-593-2432" in r[-1]["body"] and r[-1]["body"].count("\n") >= 1)
+pick_b = bookable(r2[-1]["body"])
+print("== Booking"); r, _ = text(P1, pick_b); show(r); b = r[-1]["body"]
+check("confirmation has date, time, address, phone", b.startswith("Booked:") and "/" in b and ("AM" in b or "PM" in b) and "Call 740-" in b)
+print("== Slot taken"); r, _ = text(P2, pick_b); show(r); check("P2 picks P1's slot: told taken, offered next times", "just taken" in r[-1]["body"] and "1)" in r[-1]["body"])
 r, _ = text(P2, "1"); show(r); check("P2 books the next time", r[-1]["body"].startswith("Booked:"))
-r, _ = text(P3, "1"); show(r); check("P3 (same old offer) also told taken", "just taken" in r[-1]["body"])
+r, _ = text(P3, pick_b); show(r); check("P3 (same old offer) also told taken", "just taken" in r[-1]["body"])
 r, _ = text(P3, "1"); show(r); check("P3 books a next time", r[-1]["body"].startswith("Booked:"))
 print("== Change or cancel"); r, _ = text(P1, "RESCHEDULE"); show(r)
 check("reschedule keeps old visit and offers new times", any("stays booked" in m["body"] for m in r) and "1)" in r[-1]["body"])
-r, _ = text(P1, "2"); show(r); check("reschedule confirmed", r[-1]["body"].startswith("Moved:"))
+r, _ = text(P1, bookable(r[-1]["body"])); show(r); check("reschedule confirmed", r[-1]["body"].startswith("Moved:"))
 r, _ = text(P2, "cancel visit"); show(r); check("CANCEL VISIT confirmed", "cancelled" in r[-1]["body"])
 r, _ = text(P2, "cancel visit"); show(r); check("cancel with nothing booked is explained", "no upcoming visit" in r[-1]["body"])
+print("== Mobile stop: call to book")
+M = "+17405550171"
+text(M, "need a checkup in Nelsonville"); text(M, "Kim Lee"); r, _ = text(M, "1")
+mline = next((l for l in r[-1]["body"].split("\n") if "Mobile" in l), "")
+r, _ = text(M, mline[:1] or "1"); show(r)
+check("picking a mobile stop gives the real phone, no fake booking", "740-593-2432" in r[-1]["body"] and not r[-1]["body"].startswith("Booked"))
+r, _ = text(M, "1"); show(r); check("reply 1: a health worker will call for them", "health worker will call" in r[-1]["body"])
+wk = [m["body"] for m in get("/dev/phone/" + urllib.parse.quote(W)) if m["to_phone"] == W]
+check("health worker is asked to call and book", any("please call 740-593-2432" in b and "Kim Lee" in b for b in wk))
 print("== Reminder")
 case1 = [c for c in get("/api/cases") if c["patient_phone"] == P1][0]
 bk = [x for x in get(f"/api/cases/{case1['id']}")["bookings"] if x["status"] == "booked"][0]

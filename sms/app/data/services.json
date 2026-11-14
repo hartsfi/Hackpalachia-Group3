@@ -1,60 +1,6 @@
 {
-  "_note": "SAMPLE clinics for the demo: names, addresses and phones (555-01xx numbers are fictional) are placeholders. Replace with real services from the data room before any real patient texts in. 'for': low = low income / Medicaid / uninsured, standard = other insurance or able to pay, all = both. 'short' is what fits in a 160-character text. Times are 24-hour, US Eastern. Optional 'athena' block: that clinic's open times and bookings come from athenahealth when ATHENA_CLIENT_ID/SECRET are set (departmentid required; providerid and appointmenttypeid optional, or reasonid). Run tools/athena_setup.py to list the ids in your practice. Without keys the clinic uses the mock calendar.",
+  "_note": "SAMPLE clinics (the real mobile clinic route is in mobile_route.json) for the demo: names, addresses and phones (555-01xx numbers are fictional) are placeholders. Replace with real services from the data room before any real patient texts in. 'for': low = low income / Medicaid / uninsured, standard = other insurance or able to pay, all = both. 'short' is what fits in a 160-character text. Times are 24-hour, US Eastern. Optional 'athena' block: that clinic's open times and bookings come from athenahealth when ATHENA_CLIENT_ID/SECRET are set (departmentid required; providerid and appointmenttypeid optional, or reasonid). Run tools/athena_setup.py to list the ids in your practice. Without keys the clinic uses the mock calendar.",
   "services": [
-    {
-      "id": "mobile-nelsonville",
-      "name": "Mobile Health Unit (sample)",
-      "short": "Nelsonville Mobile",
-      "for": "low",
-      "address": "Library parking lot",
-      "town": "Nelsonville",
-      "phone": "740-555-0110",
-      "lat": 39.459,
-      "lon": -82.231,
-      "days": [
-        "Tue",
-        "Thu"
-      ],
-      "times": [
-        "10:00",
-        "13:30"
-      ]
-    },
-    {
-      "id": "mobile-glouster",
-      "name": "Mobile Health Unit (sample)",
-      "short": "Glouster Mobile",
-      "for": "low",
-      "address": "Community center lot",
-      "town": "Glouster",
-      "phone": "740-555-0110",
-      "lat": 39.503,
-      "lon": -82.084,
-      "days": [
-        "Wed"
-      ],
-      "times": [
-        "10:00",
-        "14:00"
-      ]
-    },
-    {
-      "id": "mobile-pomeroy",
-      "name": "Mobile Health Unit (sample)",
-      "short": "Pomeroy Mobile",
-      "for": "low",
-      "address": "Courthouse lot",
-      "town": "Pomeroy",
-      "phone": "740-555-0110",
-      "lat": 39.028,
-      "lon": -82.033,
-      "days": [
-        "Mon"
-      ],
-      "times": [
-        "10:00"
-      ]
-    },
     {
       "id": "free-athens",
       "name": "Free Evening Clinic (sample)",

@@ -66,6 +66,11 @@ TEXT = {
                         "ZIP code or town.",
         "welcome": "TextBridge health line: replies to your texts, visit bookings and reminders. "
                    "Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
+        "call_info": "Mobile clinic {when}, {where}, {town}. Free, ages 18-64. Call {phone} to book, "
+                     "or reply 1 and we will call for you.",
+        "callhelp_ok": "OK. A health worker will call the mobile clinic to book for you and text you here.",
+        "mobile_list": "Free mobile clinic, ages 18-64. Call {phone} to book:",
+        "mobile_none": "No mobile clinic stops are scheduled right now. Call {phone} for the next dates.",
         "ask_name": "To set up your TextBridge account, reply with your first and last name (or SKIP).",
         "name_again": "Please reply with just your first and last name, like Jane Doe, or SKIP.",
         "account": "Thanks {first}! Your TextBridge ID is {code}. Keep it for your visits.",
@@ -117,6 +122,11 @@ TEXT = {
                         "necesita y su codigo postal.",
         "welcome": "Linea de salud TextBridge: respuestas, citas y recordatorios. Pueden aplicar "
                    "tarifas de mensajes y datos. HELP para ayuda, STOP para salir.",
+        "call_info": "Clinica movil {when}, {where}, {town}. Gratis, 18-64 años. Llame al {phone} para "
+                     "reservar, o responda 1 y le llamamos.",
+        "callhelp_ok": "Bien. Un trabajador de salud llamara a la clinica movil para reservar y le escribira aqui.",
+        "mobile_list": "Clinica movil gratis, 18-64 años. Llame al {phone}:",
+        "mobile_none": "No hay paradas de la clinica movil ahora. Llame al {phone} para las proximas fechas.",
         "ask_name": "Para crear su cuenta de TextBridge, responda con su nombre y apellido (o SKIP).",
         "name_again": "Responda solo con su nombre y apellido, como Ana Diaz, o SKIP.",
         "account": "Gracias {first}! Su numero de TextBridge es {code}. Guardelo para sus citas.",
@@ -209,6 +219,10 @@ def _from_patient(phone: str, body: str) -> None:
         sms.send(phone, _t(case["language"] if case else "en", "help"), case_id, "system")
         return
 
+    if word in ("mobile", "mobile clinic", "movil", "clinica movil"):
+        _send_mobile_route(phone, case, body)
+        return
+
     if word in ("my id", "id"):
         _send_my_id(phone, case)
         return
@@ -233,6 +247,8 @@ def _from_patient(phone: str, body: str) -> None:
         _on_slot(case, word)
     elif stage == "ask_identity":
         _on_identity(case, body)
+    elif stage == "ask_callhelp":
+        _on_callhelp(case, word, body)
     else:
         _notify_chws(case, f"[#{case_id}] {_tail(phone)}: {body}")
 
@@ -394,6 +410,9 @@ def _on_slot(case, word: str) -> None:
         return
 
     pick = opts[int(word) - 1]
+    if services.clinics().get(pick["service_id"], {}).get("kind") == "call":
+        _offer_call(case, pick)
+        return
     if services.uses_athena(pick["service_id"]) and not db.athena_patient(phone):
         db.update_case(case["id"], stage="ask_identity", pick=json.dumps(pick))
         patient = db.get_patient(phone)
@@ -401,6 +420,45 @@ def _on_slot(case, word: str) -> None:
         sms.send(phone, _t(lang, key, short=pick["short"]), case["id"], "system")
         return
     _book_pick(case, pick)
+
+
+def _offer_call(case, pick: dict) -> None:
+    """Real mobile clinic stops book by phone: give the number, offer a health worker's help."""
+    svc = services.clinics()[pick["service_id"]]
+    when = f"{services.when(pick['ts']).rsplit(' ', 1)[0]} {services.hours(svc)}"
+    db.update_case(case["id"], stage="ask_callhelp", pick=json.dumps(pick), offers=None)
+    sms.send(case["patient_phone"], _t(case["language"], "call_info", when=when, where=svc["address"],
+                                       town=svc["town"], phone=svc["phone"]), case["id"], "system")
+
+
+def _on_callhelp(case, word: str, body: str) -> None:
+    pick = json.loads(case["pick"] or "{}")
+    svc = services.clinics().get(pick.get("service_id"), {})
+    db.update_case(case["id"], stage="done", pick=None)
+    if word in YES:
+        patient = db.get_patient(case["patient_phone"])
+        who = " ".join(x for x in (patient["first_name"], patient["last_name"]) if x) if patient else ""
+        sms.send(case["patient_phone"], _t(case["language"], "callhelp_ok"), case["id"], "system")
+        _notify_chws(case, f"[#{case['id']}] please call {svc.get('phone', '')} to book {who or _tail(case['patient_phone'])} "
+                           f"at the mobile clinic, {svc.get('town', '')} {svc.get('date', '')} {svc.get('start', '')} "
+                           f"({svc.get('address', '')}), then text them: #{case['id']} your message")
+    else:
+        _notify_chws(case, f"[#{case['id']}] {_tail(case['patient_phone'])}: {body}")
+
+
+def _send_mobile_route(phone: str, case, body: str) -> None:
+    lang = case["language"] if case else "en"
+    db.add_message(case["id"] if case else None, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
+    route = services.mobile_route()
+    stops = services.upcoming_mobile(3)
+    if not stops:
+        sms.send(phone, _t(lang, "mobile_none", phone=route["phone"]), case["id"] if case else None, "system")
+        return
+    lines = [_t(lang, "mobile_list", phone=route["phone"])]
+    for st in stops:
+        day = services.when(services.free_slots(st, 1)[0]["ts"]).rsplit(" ", 1)[0]
+        lines.append(f"{day} {st['town']} {services.hours(st)}")
+    sms.send(phone, "\n".join(lines), case["id"] if case else None, "system")
 
 
 def _book_pick(case, pick: dict) -> None:

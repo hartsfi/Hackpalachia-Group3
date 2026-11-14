@@ -28,7 +28,45 @@ def places() -> list[dict]:
 
 
 def clinics() -> dict[str, dict]:
-    return {s["id"]: s for s in _load("services.json", "services")}
+    out = {s["id"]: s for s in _load("services.json", "services")}
+    out.update({s["id"]: s for s in mobile_stops()})
+    return out
+
+
+def mobile_route() -> dict:
+    return json.loads((DATA / "mobile_route.json").read_text())
+
+
+def mobile_stops() -> list[dict]:
+    """Each real mobile clinic stop as a call-to-book service on one date (no local booking)."""
+    route = mobile_route()
+    where = {p["town"]: p for p in places()}
+    stops = []
+    for st in route["stops"]:
+        town = where.get(st["town"])
+        if not town:
+            continue
+        stops.append({
+            "id": f"mobile-{st['date']}-{st['town'].lower()}", "name": route["name"], "kind": "call",
+            "short": f"Mobile {st['town']}", "for": route["for"], "address": st["where"], "town": st["town"],
+            "phone": route["phone"], "lat": town["lat"], "lon": town["lon"],
+            "date": st["date"], "start": st["start"], "end": st["end"],
+        })
+    return stops
+
+
+def upcoming_mobile(limit: int = 3) -> list[dict]:
+    soon = [s for s in mobile_stops() if free_slots(s, 1)]
+    return sorted(soon, key=lambda s: (s["date"], s["start"]))[:limit]
+
+
+def hours(svc: dict) -> str:
+    """'9AM-3:30PM' for a dated stop."""
+    def fmt(t):
+        h, m = map(int, t.split(":"))
+        d = dt.datetime(2000, 1, 1, h, m)
+        return d.strftime("%I:%M%p").lstrip("0").replace(":00", "")
+    return f"{fmt(svc['start'])}-{fmt(svc['end'])}"
 
 
 COORDS = re.compile(r"(-?\d{1,2}\.\d{2,})\s*,\s*(-?\d{1,3}\.\d{2,})")
@@ -91,6 +129,11 @@ def free_slots(svc: dict, n: int, after: float | None = None) -> list[dict]:
     the rest use the mock calendar built from "days" and "times".
     """
     earliest = max(after or 0, db.now() + 3600)
+    if svc.get("date"):  # a dated mobile clinic stop: one opening, its start time
+        y, m, d = map(int, svc["date"].split("-"))
+        hh, mm = map(int, svc["start"].split(":"))
+        ts = dt.datetime(y, m, d, hh, mm, tzinfo=TZ).timestamp()
+        return [{"ts": ts, "ext": None, "atype": None}] if ts > earliest else []
     if svc.get("athena") and config.ATHENA_ENABLED:
         taken_ext = db.taken_external(svc["id"])
         return [s for s in _athena_slots(svc) if s["ts"] > earliest and s["ext"] not in taken_ext][:n]

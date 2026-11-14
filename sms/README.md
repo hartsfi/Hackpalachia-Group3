@@ -14,7 +14,14 @@ Patients can also **book a visit entirely by text** (user story 1 in
 [`docs/USER_STORIES.md`](../docs/USER_STORIES.md)): ZIP or town, one income question, up to three
 nearby visits with distance and next time, booking in a mock clinic calendar, `CANCEL VISIT` /
 `RESCHEDULE`, and a reminder 24 hours before. Low income is offered the mobile health unit and free
-or sliding-scale clinics first. Clinics and towns live in `app/data/` (sample data for now).
+or sliding-scale clinics first. Clinics and towns live in `app/data/`.
+
+**Real vs sample data.** The mobile clinic route in `app/data/mobile_route.json` is real: the
+Heritage Community Clinic stops (Ohio University), copied from
+https://www.ohio.edu/medicine/community-health/community-clinic/primary-care on 2026-11-14. TextBridge
+cannot book those; picking one texts the real number (740-593-2432) and offers a health worker to
+call for the patient. Text `MOBILE` for the next stops. The other clinics in `app/data/services.json`
+are still made-up samples (names, addresses, 555 phones, hours) for showing the booking flow.
 Clinics can be connected to **athenahealth** (athenaOne): their open times come live from
 athenahealth and visits are booked, moved and cancelled there (see "athenahealth booking" in
 [TESTING.md](TESTING.md)). The others use the mock calendar.
@@ -56,7 +63,7 @@ uv run uvicorn app.main:app --reload --port 8790
 | `#12 close`     | Closes case 12                         |
 | `LIST`          | Lists open cases                       |
 
-Patients can text `MY ID`, `CANCEL VISIT`, `RESCHEDULE`, `HELP`, `STOP` and `START`.
+Patients can text `MOBILE`, `MY ID`, `CANCEL VISIT`, `RESCHEDULE`, `HELP`, `STOP` and `START`.
 
 ## Connect real phones
 

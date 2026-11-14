@@ -1,0 +1,17 @@
+{
+  "_note": "Real route of the Heritage Community Clinic mobile primary care clinics (Ohio University Heritage College of Osteopathic Medicine). Copied by hand on 2026-11-14 from the source page below. Stops change month to month: refresh this file from the page (or call to confirm) before relying on it. TextBridge cannot book these stops; people book by phone.",
+  "source": "https://www.ohio.edu/medicine/community-health/community-clinic/primary-care",
+  "retrieved": "2026-11-14",
+  "name": "Heritage Community Clinic mobile clinic",
+  "phone": "740-593-2432",
+  "eligibility": "Free primary care for qualifying adults ages 18-64 in southeast Ohio counties",
+  "for": "low",
+  "stops": [
+    {"date": "2026-11-16", "start": "09:00", "end": "15:30", "town": "Logan", "where": "Shriver's Pharmacy"},
+    {"date": "2026-11-18", "start": "08:00", "end": "15:00", "town": "Athens", "where": "Heritage Community Clinic"},
+    {"date": "2026-11-23", "start": "09:00", "end": "11:30", "town": "Belpre", "where": "Fruth Pharmacy"},
+    {"date": "2026-11-23", "start": "13:00", "end": "15:30", "town": "Stewart", "where": "Federal Valley Resource Center"},
+    {"date": "2026-12-02", "start": "09:00", "end": "15:30", "town": "McArthur", "where": "Campbell's Market"},
+    {"date": "2026-12-14", "start": "09:00", "end": "11:30", "town": "Pomeroy", "where": "Powell's Food Fair"}
+  ]
+}
