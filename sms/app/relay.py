@@ -109,8 +109,12 @@ TEXT = {
         "pharm_need_place": "Text PHARMACY and your ZIP code or town, like PHARMACY 45764.",
         "call_info": "Mobile clinic {when}, {where}, {town}. Free, ages 18-64. Call {phone} to book, "
                      "or reply 1 and we will call for you.",
+        "call_info_special": "{service} {when}, {where}, {town}. Call {phone} to book, or reply 1 and we will "
+                             "call for you.",
+        "clinic_call": "{name}, {address}, {town}. Open {hours}, helps uninsured patients. Call {phone}, or reply "
+                       "1 and we will call for you.",
         "callhelp_ok": "OK. A health worker will call the mobile clinic to book for you and text you here.",
-        "mobile_list": "Free mobile clinic, ages 18-64. Call {phone} to book:",
+        "mobile_list": "Heritage clinics coming up. Call {phone} to book:",
         "mobile_none": "No mobile clinic stops are scheduled right now. Call {phone} for the next dates.",
         "ask_name": "To set up your CareLine account, reply with your first and last name (or SKIP).",
         "name_again": "Please reply with just your first and last name, like Jane Doe, or SKIP.",
@@ -201,8 +205,12 @@ TEXT = {
         "pharm_need_place": "Escriba PHARMACY y su codigo postal o pueblo, asi: PHARMACY 45764.",
         "call_info": "Clinica movil {when}, {where}, {town}. Gratis, 18-64 años. Llame al {phone} para "
                      "reservar, o responda 1 y le llamamos.",
+        "call_info_special": "{service} {when}, {where}, {town}. Llame al {phone} para reservar, o responda 1 y "
+                             "le llamamos.",
+        "clinic_call": "{name}, {address}, {town}. Abierto {hours}, ayuda a personas sin seguro. Llame al {phone}, "
+                       "o responda 1 y le llamamos.",
         "callhelp_ok": "Bien. Un trabajador de salud llamara a la clinica movil para reservar y le escribira aqui.",
-        "mobile_list": "Clinica movil gratis, 18-64 años. Llame al {phone}:",
+        "mobile_list": "Proximas clinicas Heritage. Llame al {phone}:",
         "mobile_none": "No hay paradas de la clinica movil ahora. Llame al {phone} para las proximas fechas.",
         "ask_name": "Para crear su cuenta de CareLine, responda con su nombre y apellido (o SKIP).",
         "name_again": "Responda solo con su nombre y apellido, como Ana Diaz, o SKIP.",
@@ -822,7 +830,7 @@ def _visit_fields(service_id: str, ts: float, booking_id=None) -> dict:
 def _fit(lang: str, key: str, budget: int = 160, **f) -> str:
     """The text, with the street address (then the pickup) shortened until it fits one SMS."""
     msg = _t(lang, key, **f)
-    for field in ("address", "pickup"):
+    for field in ("address", "pickup", "where"):
         while len(msg) > budget and len(str(f.get(field, ""))) > 8:
             f[field] = str(f[field])[:-4].rstrip(" ,") + "…" if not str(f[field]).endswith("…") \
                 else str(f[field])[:-5].rstrip(" ,") + "…"
@@ -863,10 +871,19 @@ def _on_slot(case, word: str) -> None:
 def _offer_call(case, pick: dict) -> None:
     """Real mobile clinic stops book by phone: give the number, offer a health worker's help."""
     svc = services.clinics()[pick["service_id"]]
-    when = f"{services.when(pick['ts']).rsplit(' ', 1)[0]} {services.hours(svc)}"
     db.update_case(case["id"], stage="ask_callhelp", pick=json.dumps(pick), offers=None)
-    sms.send(case["patient_phone"], _t(case["language"], "call_info", when=when, where=svc["address"],
-                                       town=svc["town"], phone=svc["phone"]), case["id"], "system")
+    if svc.get("hours"):  # a real clinic with opening hours (no dated stop): call to book
+        db.update_case(case["id"], stage="ask_callhelp", pick=json.dumps(pick), offers=None)
+        sms.send(case["patient_phone"], _fit(case["language"], "clinic_call", name=svc["name"], address=svc["address"],
+                                             town=svc["town"], hours=svc["hours"], phone=svc["phone"]), case["id"], "system")
+        return
+    when = f"{services.when(pick['ts']).rsplit(' ', 1)[0]} {services.hours(svc)}"
+    if svc.get("service"):
+        sms.send(case["patient_phone"], _fit(case["language"], "call_info_special", service=svc["service"], when=when,
+                                             where=svc["address"], town=svc["town"], phone=svc["phone"]), case["id"], "system")
+    else:
+        sms.send(case["patient_phone"], _fit(case["language"], "call_info", when=when, where=svc["address"],
+                                             town=svc["town"], phone=svc["phone"]), case["id"], "system")
 
 
 def _on_callhelp(case, word: str, body: str) -> None:
@@ -889,14 +906,17 @@ def _send_mobile_route(phone: str, case, body: str, log: bool = True) -> None:
     if log:
         db.add_message(case["id"] if case else None, "patient", phone, config.CLINIC_NUMBER, body, "inbound")
     route = services.mobile_route()
-    stops = services.upcoming_mobile(3)
+    stops = services.upcoming_mobile(4)
     if not stops:
         sms.send(phone, _t(lang, "mobile_none", phone=route["phone"]), case["id"] if case else None, "system")
         return
     lines = [_t(lang, "mobile_list", phone=route["phone"])]
     for st in stops:
         day = services.when(services.free_slots(st, 1)[0]["ts"]).rsplit(" ", 1)[0]
-        lines.append(f"{day} {st['town']} {services.hours(st)}")
+        label = f"{st['short']} {st['town']}" if st.get("service") else st["town"]
+        lines.append(f"{day} {label} {services.hours(st)}")
+    while len("\n".join(lines)) > 160 and len(lines) > 2:  # one SMS: drop the furthest-out stop
+        lines.pop()
     sms.send(phone, "\n".join(lines), case["id"] if case else None, "system")
 
 

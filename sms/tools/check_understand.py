@@ -105,7 +105,7 @@ n = len(calls)
 text(B, "need a checkup, 45764")
 opts = text(B, "1")
 # Pick the first visit the server books itself (real mobile clinic stops are call-to-book).
-pick = next((l[0] for l in opts[-1].split("\n") if l[:2] in ("1)", "2)", "3)") and "Mobile" not in l), "1")
+pick = next((l[0] for l in opts[-1].split("\n") if l[:2] in ("1)", "2)", "3)") and "Mobile" not in l and "Heritage" not in l), "1")
 r = text(B, pick)
 if not LIVE:
     check("no model calls for ZIP, 1, 1", len(calls) == n, f"{len(calls) - n} calls")
