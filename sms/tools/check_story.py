@@ -141,7 +141,7 @@ r, _ = text(V, "0"); show(r); check("0 = no ride", "no ride" in r[-1]["body"].lo
 print("== Numbered menu")
 N = "+17405550177"
 text(N, "hi"); r, _ = text(N, "Ann Bell"); show(r)
-check("after sign-up: menu with 6 numbered choices and 911", r[-1]["body"].count("\n") >= 7 and "Emergency: call 911" in r[-1]["body"])
+check("after sign-up: menu with 5 numbered choices and 911", r[-1]["body"].count("\n") == 6 and "5 My visit" in r[-1]["body"] and "6 " not in r[-1]["body"] and "Emergency: call 911" in r[-1]["body"])
 check("menu fits one SMS", len(r[-1]["body"]) <= 160)
 r, _ = text(N, "9"); show(r); check("a number not on the menu shows the menu again", "Reply a number" in r[-1]["body"])
 r, _ = text(N, "4"); show(r); check("4 = real mobile clinic stops", "740-593-2432" in r[-1]["body"])
@@ -158,7 +158,7 @@ r, _ = text(N2, "45701"); show(r); check("then the income question", "Reply 1 if
 N3 = "+17405550179"
 text(N3, "hey"); text(N3, "SKIP"); r, _ = text(N3, "2"); show(r); check("2 = ride options", "book a ride" in r[-1]["body"])
 N4 = "+17405550180"
-text(N4, "hi"); text(N4, "SKIP"); r, _ = text(N4, "6"); show(r); check("6 = a health worker will text", "health worker will text you" in r[-1]["body"])
+text(N4, "hi"); text(N4, "SKIP"); r, _ = text(N4, "6"); show(r); check("6 is no longer a choice: menu again", "Reply a number" in r[-1]["body"])
 N5 = "+17405550181"
 text(N5, "hi"); text(N5, "SKIP"); r, _ = text(N5, "im low on my pills, 45764"); show(r)
 check("typing the need instead of a number still works", any(m["body"].startswith("Pharmacies near you") for m in r))

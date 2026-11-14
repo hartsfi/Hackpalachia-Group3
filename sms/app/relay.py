@@ -70,7 +70,7 @@ TEXT = {
         "welcome": "CareLine health line: replies to your texts, visit bookings and reminders. "
                    "Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
         "menu": "What do you need? Reply a number:\n1 See a doctor\n2 Ride to a visit\n3 Medicine/pharmacy\n"
-                "4 Mobile clinic\n5 My visit\n6 Health worker\nEmergency: call 911",
+                "4 Mobile clinic\n5 My visit\nEmergency: call 911",
         "welcome_back_menu": "Welcome back {first}!",
         "chw_soon": "OK. A health worker will text you here soon.",
         "ride_offer": "Need a ride to your visit? Reply RIDE.",
@@ -152,7 +152,7 @@ TEXT = {
         "welcome": "Linea de salud CareLine: respuestas, citas y recordatorios. Pueden aplicar "
                    "tarifas de mensajes y datos. HELP para ayuda, STOP para salir.",
         "menu": "¿Que necesita? Responda un numero:\n1 Ver a un medico\n2 Transporte\n3 Medicina/farmacia\n"
-                "4 Clinica movil\n5 Mi cita\n6 Trabajador de salud\nEmergencia: 911",
+                "4 Clinica movil\n5 Mi cita\nEmergencia: 911",
         "welcome_back_menu": "¡Bienvenido otra vez {first}!",
         "chw_soon": "Bien. Un trabajador de salud le escribira aqui pronto.",
         "ride_offer": "¿Necesita transporte a su cita? Responda RIDE.",
@@ -540,10 +540,6 @@ def _on_menu(case, word: str, body: str, tri: dict | None) -> None:
         _send_mobile_route(phone, case, body, log=False)  # stays on the menu: they can pick again
     elif word == "5":
         _send_my_visit(phone, case, body, log=False)
-    elif word == "6":
-        db.update_case(case["id"], stage="done")
-        sms.send(phone, _t(lang, "chw_soon"), case["id"], "system")
-        _notify_chws(case, f"[#{case['id']}] {_tail(phone)} asked to talk to a health worker. Reply: #{case['id']} your message")
     elif word.isdigit() and len(word) <= 2:  # a menu number we don't have (a ZIP falls through below)
         sms.send(phone, _t(lang, "menu"), case["id"], "system")
     elif tri and tri["category"] != "other":  # they wrote what they need instead of a number
