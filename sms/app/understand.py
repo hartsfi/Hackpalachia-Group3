@@ -14,6 +14,7 @@ What Claude does NOT do here:
 Off (and the flow behaves exactly as before) when ANTHROPIC_API_KEY is blank or FREE_TEXT=0.
 Any error, timeout or unclear answer returns None and the flow asks its question again.
 """
+import difflib
 import json
 import logging
 
@@ -71,22 +72,31 @@ def _schema(field: str, spec: dict) -> dict:
 
 
 def place(body: str) -> dict | None:
-    """A place from our list that the message clearly names (misspelled, abbreviated), or None."""
+    """A place from our list that the message clearly names (misspelled, abbreviated), or None.
+
+    Claude only names the town; the lookup against our list happens here, so the result is
+    always a row that exists.
+    """
     if not enabled():
         return None
-    known = "\n".join(f"{p['zip']} {p['town']}" for p in services.places())
     got = _ask(
         "Question asked: where are you (ZIP code or town)?\n"
-        f"Places we serve:\n{known}\n"
-        "Return the 5-digit ZIP of the one listed place the sender says they are in or near, allowing "
-        "for misspellings and abbreviations of a listed town. If they name somewhere not on the list, "
-        'or no place at all, return "".',
+        "Return the name of the Ohio town or city the sender says they are in or near, with the "
+        "spelling corrected and nothing else (for example \"Nelsonville\"). If the message names "
+        'no place, or only a place outside Ohio, return "".',
         body,
-        _schema("zip", {"type": "string"}),
+        _schema("town", {"type": "string"}),
     )
-    zip_code = (got or {}).get("zip", "")
-    # Only accept a ZIP that is really on the list.
-    return next((p for p in services.places() if p["zip"] == zip_code), None)
+    name = str((got or {}).get("town") or "").strip().lower()
+    if not name:
+        return None
+    by_town = {}
+    for p in services.places():
+        by_town.setdefault(p["town"].lower(), p)  # a city has many ZIP codes; the first row wins
+    if name in by_town:
+        return by_town[name]
+    close = difflib.get_close_matches(name, by_town, n=1, cutoff=0.88)
+    return by_town[close[0]] if close else None
 
 
 def income(body: str) -> str | None:
